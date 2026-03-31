@@ -1,0 +1,145 @@
+name: Release
+
+on:
+  release:
+    types: [published]
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository }}
+
+jobs:
+  build-and-push-release:
+    name: Build and Push Release Images
+    runs-on: ubuntu-latest
+    
+    strategy:
+      matrix:
+        service: [canvas-service, room-service, physics-service, frontend]
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+        
+      - name: Log in to Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+          
+      - name: Extract version from tag
+        id: version
+        run: echo "version=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
+          
+      - name: Extract metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}/${{ matrix.service }}
+          tags: |
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=semver,pattern={{major}}
+            type=raw,value=latest
+            
+      - name: Build and push Docker image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: ./services/${{ matrix.service }}/Dockerfile
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          
+  create-deployment-manifest:
+    name: Create Deployment Manifest
+    runs-on: ubuntu-latest
+    needs: [build-and-push-release]
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        
+      - name: Extract version from tag
+        id: version
+        run: echo "version=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
+        
+      - name: Generate deployment manifest
+        run: |
+          mkdir -p release-artifacts
+          
+          # Create docker-compose for release
+          cat > release-artifacts/docker-compose.release.yml << EOF
+          version: '3.8'
+          
+          services:
+            canvas-service:
+              image: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}/canvas-service:${{ steps.version.outputs.version }}
+              
+            room-service:
+              image: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}/room-service:${{ steps.version.outputs.version }}
+              
+            physics-service:
+              image: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}/physics-service:${{ steps.version.outputs.version }}
+              
+            frontend:
+              image: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}/frontend:${{ steps.version.outputs.version }}
+          EOF
+          
+          # Create deployment instructions
+          cat > release-artifacts/DEPLOYMENT.md << EOF
+          # Coffee & Canvas Release ${{ steps.version.outputs.version }}
+          
+          ## Docker Images
+          
+          - Canvas Service: \`${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}/canvas-service:${{ steps.version.outputs.version }}\`
+          - Room Service: \`${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}/room-service:${{ steps.version.outputs.version }}\`
+          - Physics Service: \`${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}/physics-service:${{ steps.version.outputs.version }}\`
+          - Frontend: \`${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}/frontend:${{ steps.version.outputs.version }}\`
+          
+          ## Quick Deploy
+          
+          \`\`\`bash
+          # Download the release artifacts
+          curl -L -o docker-compose.release.yml https://github.com/${{ github.repository }}/releases/download/${{ steps.version.outputs.version }}/docker-compose.release.yml
+          
+          # Deploy with your environment configuration
+          docker-compose -f docker-compose.yml -f docker-compose.release.yml up -d
+          \`\`\`
+          
+          ## Environment Variables
+          
+          Make sure to configure the following environment variables:
+          
+          - \`DATABASE_URL\`: PostgreSQL connection string
+          - \`REDIS_URL\`: Redis connection string  
+          - \`JWT_SECRET\`: Secret for JWT token signing
+          - \`PHYSICS_GRPC_ADDR\`: Physics service gRPC address
+          
+          EOF
+        
+      - name: Upload release artifacts
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ github.event.release.upload_url }}
+          asset_path: ./release-artifacts/docker-compose.release.yml
+          asset_name: docker-compose.release.yml
+          asset_content_type: text/yaml
+          
+      - name: Upload deployment guide
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ github.event.release.upload_url }}
+          asset_path: ./release-artifacts/DEPLOYMENT.md
+          asset_name: DEPLOYMENT.md
+          asset_content_type: text/markdown
