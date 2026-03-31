@@ -1,0 +1,20 @@
+FROM golang:1.22-alpine
+
+WORKDIR /app
+
+# Install development tools
+RUN apk add --no-cache git
+
+# Copy go mod files
+COPY services/physics-service/go.mod services/physics-service/go.sum ./
+
+# Download dependencies
+RUN go mod download
+
+# Copy source code
+COPY services/physics-service/ .
+COPY shared/proto/ ./proto/
+
+EXPOSE 50051
+
+CMD ["go", "run", "main.go"]

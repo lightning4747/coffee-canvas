@@ -1,0 +1,19 @@
+FROM node:24-alpine
+
+WORKDIR /app
+
+# Copy package files
+COPY services/room-service/package*.json ./
+RUN mkdir -p ../shared
+COPY shared/package*.json ../shared/
+
+# Install all dependencies (including dev dependencies)
+RUN npm install
+
+# Copy source code
+COPY services/room-service/ .
+COPY shared/ ../shared/
+
+EXPOSE 3002
+
+CMD ["npm", "run", "dev"]
