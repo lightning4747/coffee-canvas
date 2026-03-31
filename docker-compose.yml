@@ -1,0 +1,129 @@
+services:
+  # Infrastructure Services
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    command: redis-server --appendonly yes
+    volumes:
+      - redis_data:/data
+    environment:
+      - REDIS_PASSWORD=${REDIS_PASSWORD:-}
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+
+  postgres:
+    image: postgis/postgis:16-3.4-alpine
+    ports:
+      - "5432:5432"
+    environment:
+      - POSTGRES_DB=${POSTGRES_DB:-coffeecanvas}
+      - POSTGRES_USER=${POSTGRES_USER:-postgres}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-postgres}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./services/database/init:/docker-entrypoint-initdb.d
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres}"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+
+  # Application Services
+  canvas-service:
+    build:
+      context: .
+      dockerfile: services/canvas-service/Dockerfile.dev
+    ports:
+      - "3001:3001"
+    environment:
+      - NODE_ENV=${NODE_ENV:-development}
+      - PORT=3001
+      - REDIS_URL=redis://redis:6379
+      - DATABASE_URL=postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@postgres:5432/${POSTGRES_DB:-coffeecanvas}
+      - PHYSICS_GRPC_URL=physics-service:50051
+      - JWT_SECRET=${JWT_SECRET:-dev-secret-key}
+    depends_on:
+      redis:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
+      physics-service:
+        condition: service_started
+    volumes:
+      - .:/app  # Mount root so shared/ and services/ are both available
+      - /app/node_modules # Protect the internal node_modules
+    command: npm run dev -w services/canvas-service
+
+  room-service:
+    build:
+      context: .
+      dockerfile: services/room-service/Dockerfile.dev
+    ports:
+      - "3002:3002"
+    environment:
+      - NODE_ENV=${NODE_ENV:-development}
+      - PORT=3002
+      - DATABASE_URL=postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@postgres:5432/${POSTGRES_DB:-coffeecanvas}
+      - JWT_SECRET=${JWT_SECRET:-dev-secret-key}
+    depends_on:
+      postgres:
+        condition: service_healthy
+    volumes:
+      - .:/app
+      - /app/node_modules
+    command: npm run dev -w services/room-service
+
+  physics-service:
+    build:
+      context: .
+      dockerfile: services/physics-service/Dockerfile.dev
+    ports:
+      - "50051:50051"
+    environment:
+      - PORT=50051
+      - LOG_LEVEL=${LOG_LEVEL:-info}
+    volumes:
+      - .:/app
+    working_dir: /app/services/physics-service
+    command: go run main.go
+
+  # Frontend Application
+  frontend:
+    build:
+      context: .
+      dockerfile: frontend/Dockerfile.dev
+    ports:
+      - "3000:3000"
+    environment:
+      - NODE_ENV=${NODE_ENV:-development}
+      - NEXT_PUBLIC_CANVAS_SERVICE_URL=http://localhost:3001
+      - NEXT_PUBLIC_ROOM_SERVICE_URL=http://localhost:3002
+    depends_on:
+      - canvas-service
+      - room-service
+    volumes:
+      - .:/app
+      - /app/node_modules
+      - /app/frontend/.next
+    command: npm run dev -w frontend
+
+  # Reverse Proxy
+  nginx:
+    image: nginx:alpine
+    ports:
+      - "80:80"
+    volumes:
+      - ./nginx.conf:/etc/nginx/nginx.conf:ro
+    depends_on:
+      - frontend
+      - canvas-service
+      - room-service
+    restart: unless-stopped
+
+volumes:
+  redis_data:
+  postgres_data:
