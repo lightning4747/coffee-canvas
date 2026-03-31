@@ -1,0 +1,22 @@
+{
+  "name": "@coffee-canvas/shared",
+  "version": "1.0.0",
+  "description": "Shared types and utilities for Coffee & Canvas",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "build": "tsc",
+    "proto:generate": "npm run proto:ts && npm run proto:go",
+    "proto:ts": "protoc --plugin=protoc-gen-ts=./node_modules/.bin/protoc-gen-ts --ts_out=./src/generated --proto_path=./proto ./proto/*.proto",
+    "proto:go": "protoc --go_out=../services/physics-service --go-grpc_out=../services/physics-service --proto_path=./proto ./proto/*.proto",
+    "clean": "rm -rf dist src/generated"
+  },
+  "dependencies": {
+    "protobufjs": "^7.2.0"
+  },
+  "devDependencies": {
+    "typescript": "^5.0.0",
+    "protoc-gen-ts": "^0.8.0",
+    "@types/node": "^24.0.0"
+  }
+}

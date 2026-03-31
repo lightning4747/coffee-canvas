@@ -1,0 +1,60 @@
+syntax = "proto3";
+
+package physics;
+
+option go_package = "./proto";
+
+// Physics Service for coffee pour fluid simulation
+service CoffeePhysics {
+  rpc ComputeSpread(PourRequest) returns (StainResult);
+}
+
+// Request message for coffee pour simulation
+message PourRequest {
+  string room_id = 1;
+  string pour_id = 2;
+  Point2D origin = 3;
+  float intensity = 4;
+  float viscosity = 5;
+  repeated StrokeSnapshot nearby_strokes = 6;
+  int32 simulation_steps = 7;
+}
+
+// Response message containing stain results
+message StainResult {
+  string pour_id = 1;
+  repeated StainPolygon stain_polygons = 2;
+  repeated StrokeMutation stroke_mutations = 3;
+  int32 computation_ms = 4;
+}
+
+// 2D point coordinates
+message Point2D {
+  float x = 1;
+  float y = 2;
+}
+
+// Stroke data for physics calculations
+message StrokeSnapshot {
+  string stroke_id = 1;
+  string color = 2;
+  float width = 3;
+  repeated Point2D points = 4;
+  float opacity = 5;
+}
+
+// Stain polygon result
+message StainPolygon {
+  string id = 1;
+  repeated Point2D path = 2;
+  float opacity = 3;
+  string color = 4;
+}
+
+// Stroke mutation from coffee absorption
+message StrokeMutation {
+  string stroke_id = 1;
+  string color_shift = 2;
+  float blur_factor = 3;
+  float opacity_delta = 4;
+}
