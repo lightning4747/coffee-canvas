@@ -3,8 +3,6 @@
     "target": "ES2020",
     "module": "commonjs",
     "lib": ["ES2020"],
-    "outDir": "./dist",
-    "rootDir": "./src",
     "strict": true,
     "esModuleInterop": true,
     "skipLibCheck": true,
@@ -13,9 +11,14 @@
     "declarationMap": true,
     "sourceMap": true,
     "resolveJsonModule": true,
-    "composite": true,
-    "incremental": true
+    "incremental": true,
+    "composite": true
   },
-  "include": ["src/**/*"],
-  "exclude": ["node_modules", "dist", "src/generated"]
+  "references": [
+    { "path": "./shared" },
+    { "path": "./services/canvas-service" },
+    { "path": "./services/room-service" },
+    { "path": "./frontend" }
+  ],
+  "files": []
 }

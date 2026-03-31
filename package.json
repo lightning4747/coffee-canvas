@@ -13,18 +13,40 @@
     "dev:logs": "docker-compose logs -f",
     "dev:down": "docker-compose down",
     "build": "npm run build --workspaces",
+    "build:tsc": "tsc --build",
     "test": "npm run test --workspaces",
+    "test:ci": "npm run test:ci --workspaces",
     "lint": "npm run lint --workspaces",
-    "clean": "npm run clean --workspaces && docker-compose down -v"
+    "lint:fix": "npm run lint:fix --workspaces",
+    "format": "prettier --write \"**/*.{ts,tsx,js,jsx,json,md}\"",
+    "format:check": "prettier --check \"**/*.{ts,tsx,js,jsx,json,md}\"",
+    "type-check": "tsc --build --noEmit",
+    "proto:generate": "npm run proto:generate --workspace=shared",
+    "clean": "npm run clean --workspaces && docker-compose down -v",
+    "prepare": "husky install || true"
   },
   "devDependencies": {
     "@types/node": "^24.0.0",
     "typescript": "^5.0.0",
     "eslint": "^8.0.0",
-    "prettier": "^3.0.0"
+    "prettier": "^3.0.0",
+    "@typescript-eslint/eslint-plugin": "^6.0.0",
+    "@typescript-eslint/parser": "^6.0.0",
+    "husky": "^8.0.0",
+    "lint-staged": "^15.0.0",
+    "concurrently": "^8.0.0"
   },
   "engines": {
     "node": ">=24.0.0",
     "npm": ">=10.0.0"
+  },
+  "lint-staged": {
+    "*.{ts,tsx,js,jsx}": [
+      "eslint --fix",
+      "prettier --write"
+    ],
+    "*.{json,md}": [
+      "prettier --write"
+    ]
   }
 }

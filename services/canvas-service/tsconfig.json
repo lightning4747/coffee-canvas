@@ -4,10 +4,14 @@
     "outDir": "./dist",
     "rootDir": "./src",
     "baseUrl": "./src",
+    "composite": true,
     "paths": {
       "@shared/*": ["../../shared/src/*"]
     }
   },
+  "references": [
+    { "path": "../../shared" }
+  ],
   "include": ["src/**/*"],
   "exclude": ["node_modules", "dist", "**/*.test.ts"]
 }
