@@ -1,0 +1,19 @@
+FROM node:24-alpine
+
+WORKDIR /app
+
+# Copy package files
+COPY frontend/package*.json ./
+RUN mkdir -p ../shared
+COPY shared/package*.json ../shared/
+
+# Install all dependencies (including dev dependencies)
+RUN npm install
+
+# Copy source code
+COPY frontend/ .
+COPY shared/ ../shared/
+
+EXPOSE 3000
+
+CMD ["npm", "run", "dev"]
