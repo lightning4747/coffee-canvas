@@ -1,0 +1,58 @@
+# --- General ---
+.DS_Store
+.env
+.env.local
+.env.*.local
+*.log
+dist/
+build/
+.cache/
+
+# --- Node.js (Client, Canvas Service, Room Service) ---
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
+.next/
+out/
+.turbo/
+.eslintcache
+
+# --- Go (Physics Service) ---
+# Binaries for programs and plugins
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+bin/
+# Test binary, built with `go test -c`
+*.test
+# Output of the go coverage tool, created by `go test -cover`
+*.out
+# Dependency directories (only if you use 'go mod vendor')
+vendor/
+
+# --- Docker & DB ---
+.docker/
+pgdata/
+redisdata/
+
+# --- IDEs ---
+.vscode/*
+!.vscode/extensions.json
+!.vscode/launch.json
+!.vscode/settings.json
+.idea/
+*.swp
+*.swo
+
+# --- gRPC / Proto ---
+# Usually, we don't ignore generated code if it's needed for builds,
+# but we ignore the protoc temp files.
+*.pb.go
+*_pb.js
+*_grpc_pb.js
+
+.config.kiro
