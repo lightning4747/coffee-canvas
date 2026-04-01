@@ -2,6 +2,10 @@
 -- Created: 2024-01-01
 -- Description: Creates core tables for rooms, users, and stroke_events with spatial indexing
 
+-- Ensure required extensions are available
+CREATE EXTENSION IF NOT EXISTS postgis;
+CREATE EXTENSION IF NOT EXISTS pgcrypto;
+
 -- ============================================================================
 -- ROOMS TABLE
 -- ============================================================================
@@ -42,8 +46,7 @@ CREATE TABLE IF NOT EXISTS stroke_events (
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     
     -- Spatial geometry for PostGIS indexing (derived from data.points)
-    geometry GEOMETRY(MULTIPOINT, 4326),
-    
-    -- Composite constraint to prevent duplicate stroke events
-    UNIQUE(room_id, stroke_id, event_type, chunk_key)
+    geometry GEOMETRY(MULTIPOINT, 4326)
+    -- Note: no uniqueness constraint on (room_id, stroke_id, event_type, chunk_key)
+    -- because multiple segment events per stroke within the same chunk are expected.
 );

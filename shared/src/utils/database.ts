@@ -65,15 +65,27 @@ export class DatabaseManager {
    * Create a new room
    */
   async createRoom(code: string, name?: string, capacity: number = 10): Promise<Room> {
-    const result = await this.query<Room>(
+    const result = await this.query<{
+      id: string;
+      code: string;
+      name: string | null;
+      capacity: number;
+      created_at: Date;
+      stroke_count: number;
+    }>(
       `INSERT INTO rooms (code, name, capacity) 
        VALUES ($1, $2, $3) 
        RETURNING id, code, name, capacity, created_at, stroke_count`,
       [code, name, capacity]
     );
-    
+
+    const row = result.rows[0];
     return {
-      ...result.rows[0],
+      id: row.id,
+      code: row.code,
+      name: row.name ?? undefined,
+      capacity: row.capacity,
+      createdAt: row.created_at,
       participantCount: 0, // New room has no participants
     };
   }
@@ -144,14 +156,28 @@ export class DatabaseManager {
    * Add user to room
    */
   async addUserToRoom(roomId: string, displayName: string, color: string): Promise<User> {
-    const result = await this.query<User>(
+    const result = await this.query<{
+      id: string;
+      room_id: string;
+      display_name: string;
+      color: string;
+      joined_at: Date | null;
+      left_at: Date | null;
+    }>(
       `INSERT INTO users (room_id, display_name, color) 
        VALUES ($1, $2, $3) 
        RETURNING id, room_id, display_name, color, joined_at, left_at`,
       [roomId, displayName, color]
     );
 
-    return result.rows[0];
+    const row = result.rows[0];
+    return {
+      id: row.id,
+      displayName: row.display_name,
+      color: row.color,
+      joinedAt: row.joined_at ?? new Date(),
+      leftAt: row.left_at ?? undefined,
+    };
   }
 
   /**
@@ -170,7 +196,14 @@ export class DatabaseManager {
    * Get active users in room
    */
   async getActiveUsersInRoom(roomId: string): Promise<User[]> {
-    const result = await this.query<User>(
+    const result = await this.query<{
+      id: string;
+      room_id: string;
+      display_name: string;
+      color: string;
+      joined_at: Date | null;
+      left_at: Date | null;
+    }>(
       `SELECT id, room_id, display_name, color, joined_at, left_at
        FROM users 
        WHERE room_id = $1 AND is_active = true
@@ -178,7 +211,13 @@ export class DatabaseManager {
       [roomId]
     );
 
-    return result.rows;
+    return result.rows.map((row) => ({
+      id: row.id,
+      displayName: row.display_name,
+      color: row.color,
+      joinedAt: row.joined_at ?? new Date(),
+      leftAt: row.left_at ?? undefined,
+    }));
   }
 
   // ============================================================================
@@ -186,17 +225,37 @@ export class DatabaseManager {
   // ============================================================================
 
   /**
-   * Insert stroke event with automatic chunk key calculation
+   * Insert a stroke event. The caller is responsible for providing chunkKey;
+   * use RedisUtils.calculateChunkKey (or equivalent) before calling this method.
    */
   async insertStrokeEvent(event: Omit<StrokeEvent, 'id' | 'createdAt'>): Promise<StrokeEvent> {
-    const result = await this.query<StrokeEvent>(
+    const result = await this.query<{
+      id: string;
+      room_id: string;
+      stroke_id: string;
+      user_id: string;
+      event_type: StrokeEvent['eventType'];
+      chunk_key: string;
+      data: StrokeEvent['data'];
+      created_at: Date;
+    }>(
       `INSERT INTO stroke_events (room_id, stroke_id, user_id, event_type, chunk_key, data)
        VALUES ($1, $2, $3, $4, $5, $6)
        RETURNING id, room_id, stroke_id, user_id, event_type, chunk_key, data, created_at`,
       [event.roomId, event.strokeId, event.userId, event.eventType, event.chunkKey, event.data]
     );
 
-    return result.rows[0];
+    const row = result.rows[0];
+    return {
+      id: row.id,
+      roomId: row.room_id,
+      strokeId: row.stroke_id,
+      userId: row.user_id,
+      eventType: row.event_type,
+      chunkKey: row.chunk_key,
+      data: row.data,
+      createdAt: row.created_at,
+    };
   }
 
   /**
@@ -246,7 +305,9 @@ export class DatabaseManager {
   }
 
   /**
-   * Get stroke events within viewport bounds using PostGIS
+   * Get stroke events within viewport bounds using PostGIS.
+   * The SQL function get_strokes_in_viewport must return room_id and chunk_key
+   * (see migration 003_triggers_and_functions.sql).
    */
   async getStrokeEventsInViewport(
     roomId: string,
@@ -255,12 +316,30 @@ export class DatabaseManager {
     maxX: number,
     maxY: number
   ): Promise<StrokeEvent[]> {
-    const result = await this.query<StrokeEvent>(
+    const result = await this.query<{
+      id: string;
+      stroke_id: string;
+      user_id: string;
+      event_type: StrokeEvent['eventType'];
+      data: StrokeEvent['data'];
+      created_at: Date;
+      room_id: string;
+      chunk_key: string;
+    }>(
       `SELECT * FROM get_strokes_in_viewport($1, $2, $3, $4, $5)`,
       [roomId, minX, minY, maxX, maxY]
     );
 
-    return result.rows;
+    return result.rows.map((row) => ({
+      id: row.id,
+      roomId: row.room_id,
+      strokeId: row.stroke_id,
+      userId: row.user_id,
+      eventType: row.event_type,
+      chunkKey: row.chunk_key,
+      data: row.data,
+      createdAt: row.created_at,
+    }));
   }
 
   /**

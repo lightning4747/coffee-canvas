@@ -17,9 +17,7 @@ echo "📍 Target: $DB_USER@$DB_HOST:$DB_PORT/$DB_NAME"
 
 # Check if PostgreSQL is available
 echo "🔍 Checking database connection..."
-PGPASSWORD=$DB_PASSWORD psql -h $DB_HOST -p $DB_PORT -U $DB_USER -d $DB_NAME -c "SELECT version();" > /dev/null
-
-if [ $? -eq 0 ]; then
+if PGPASSWORD=$DB_PASSWORD psql -h $DB_HOST -p $DB_PORT -U $DB_USER -d $DB_NAME -c "SELECT version();" > /dev/null; then
     echo "✅ Database connection successful"
 else
     echo "❌ Database connection failed"
@@ -28,9 +26,7 @@ fi
 
 # Run the test script
 echo "🔄 Running schema tests..."
-PGPASSWORD=$DB_PASSWORD psql -h $DB_HOST -p $DB_PORT -U $DB_USER -d $DB_NAME -f "$(dirname "$0")/test-schema.sql"
-
-if [ $? -eq 0 ]; then
+if PGPASSWORD=$DB_PASSWORD psql -h $DB_HOST -p $DB_PORT -U $DB_USER -d $DB_NAME -f "$(dirname "$0")/test-schema.sql"; then
     echo "✅ All database tests passed!"
 else
     echo "❌ Database tests failed"

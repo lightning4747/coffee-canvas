@@ -1,6 +1,8 @@
 -- Coffee & Canvas Database Initialization
 -- Enable PostGIS extension for spatial operations
 CREATE EXTENSION IF NOT EXISTS postgis;
+-- Enable pgcrypto for gen_random_uuid() on PostgreSQL < 13
+CREATE EXTENSION IF NOT EXISTS pgcrypto;
 
 -- Create database if it doesn't exist
 -- (This is handled by Docker environment variables)
@@ -56,10 +58,9 @@ CREATE TABLE IF NOT EXISTS stroke_events (
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     
     -- Spatial geometry for PostGIS indexing (derived from data.points)
-    geometry GEOMETRY(MULTIPOINT, 4326),
-    
-    -- Composite constraint to prevent duplicate stroke events
-    UNIQUE(room_id, stroke_id, event_type, chunk_key)
+    geometry GEOMETRY(MULTIPOINT, 4326)
+    -- Note: no uniqueness constraint on (room_id, stroke_id, event_type, chunk_key)
+    -- because multiple segment events per stroke within the same chunk are expected.
 );
 
 -- ============================================================================

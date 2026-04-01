@@ -44,11 +44,16 @@ docker-compose ps
 ### 2. Run Migrations
 
 ```bash
-# Run all migrations in order
+# Run all migrations in order (recommended)
 ./services/database/run-migrations.sh
 
-# Or manually with psql
+# Or apply the init script first (sets up base tables + extensions),
+# then run the remaining migrations manually:
+# NOTE: 01-init.sql alone is NOT sufficient — migrations 002 and 003
+# add spatial indexes, triggers, and functions required by the application.
 PGPASSWORD=postgres psql -h localhost -U postgres -d coffeecanvas -f services/database/init/01-init.sql
+PGPASSWORD=postgres psql -h localhost -U postgres -d coffeecanvas -f services/database/migrations/002_spatial_indexes.sql
+PGPASSWORD=postgres psql -h localhost -U postgres -d coffeecanvas -f services/database/migrations/003_triggers_and_functions.sql
 ```
 
 ### 3. Test Schema

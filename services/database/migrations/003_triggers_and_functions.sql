@@ -82,11 +82,20 @@ RETURNS TABLE(
     user_id UUID,
     event_type VARCHAR,
     data JSONB,
-    created_at TIMESTAMP WITH TIME ZONE
+    created_at TIMESTAMP WITH TIME ZONE,
+    room_id UUID,
+    chunk_key TEXT
 ) AS $$
 BEGIN
     RETURN QUERY
-    SELECT se.id, se.stroke_id, se.user_id, se.event_type, se.data, se.created_at
+    SELECT se.id,
+           se.stroke_id,
+           se.user_id,
+           se.event_type,
+           se.data,
+           se.created_at,
+           se.room_id,
+           se.chunk_key
     FROM stroke_events se
     WHERE se.room_id = p_room_id
     AND se.chunk_key IN (

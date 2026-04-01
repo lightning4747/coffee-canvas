@@ -20,9 +20,7 @@ echo "📍 Target: $DB_USER@$DB_HOST:$DB_PORT/$DB_NAME"
 
 # Check if PostgreSQL is available
 echo "🔍 Checking database connection..."
-PGPASSWORD=$DB_PASSWORD psql -h $DB_HOST -p $DB_PORT -U $DB_USER -d $DB_NAME -c "SELECT version();" > /dev/null
-
-if [ $? -eq 0 ]; then
+if PGPASSWORD=$DB_PASSWORD psql -h $DB_HOST -p $DB_PORT -U $DB_USER -d $DB_NAME -c "SELECT version();" > /dev/null; then
     echo "✅ Database connection successful"
 else
     echo "❌ Database connection failed"
@@ -40,15 +38,14 @@ CREATE TABLE IF NOT EXISTS schema_migrations (
 # Run migrations in order
 for migration_file in $(ls $MIGRATION_DIR/*.sql | sort); do
     migration_name=$(basename "$migration_file" .sql)
-    
+
     # Check if migration has already been applied
-    applied=$(PGPASSWORD=$DB_PASSWORD psql -h $DB_HOST -p $DB_PORT -U $DB_USER -d $DB_NAME -t -c "SELECT COUNT(*) FROM schema_migrations WHERE version = '$migration_name';")
-    
+    # Trim whitespace from the COUNT result to avoid numeric comparison failures
+    applied=$(PGPASSWORD=$DB_PASSWORD psql -h $DB_HOST -p $DB_PORT -U $DB_USER -d $DB_NAME -t -c "SELECT COUNT(*) FROM schema_migrations WHERE version = '$migration_name';" | xargs)
+
     if [ "$applied" -eq 0 ]; then
         echo "🔄 Applying migration: $migration_name"
-        PGPASSWORD=$DB_PASSWORD psql -h $DB_HOST -p $DB_PORT -U $DB_USER -d $DB_NAME -f "$migration_file"
-        
-        if [ $? -eq 0 ]; then
+        if PGPASSWORD=$DB_PASSWORD psql -h $DB_HOST -p $DB_PORT -U $DB_USER -d $DB_NAME -f "$migration_file"; then
             # Record successful migration
             PGPASSWORD=$DB_PASSWORD psql -h $DB_HOST -p $DB_PORT -U $DB_USER -d $DB_NAME -c "INSERT INTO schema_migrations (version) VALUES ('$migration_name');"
             echo "✅ Migration $migration_name applied successfully"

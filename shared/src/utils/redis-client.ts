@@ -10,6 +10,9 @@ export class RedisClient {
   private subscriber: Redis;
   private publisher: Redis;
 
+  // Tracks per-channel message handlers so they can be removed on unsubscribe
+  private channelHandlers: Map<string, (channel: string, message: string) => void> = new Map();
+
   constructor(redisUrl: string) {
     // Main client for general operations
     this.client = new Redis(redisUrl, {
@@ -65,10 +68,18 @@ export class RedisClient {
   // ============================================================================
 
   /**
-   * Cache active stroke with TTL
+   * Cache active stroke with TTL.
+   * strokeId is required and must be present in strokeData.
    */
-  async cacheActiveStroke(roomId: string, strokeData: Partial<StrokeData>): Promise<void> {
-    const key = RedisUtils.getActiveStrokeKey(roomId, strokeData.strokeId!);
+  async cacheActiveStroke(
+    roomId: string,
+    strokeData: Partial<StrokeData> & Pick<StrokeData, 'strokeId'>
+  ): Promise<void> {
+    if (!strokeData.strokeId) {
+      throw new Error('cacheActiveStroke: strokeId is required to cache active stroke');
+    }
+
+    const key = RedisUtils.getActiveStrokeKey(roomId, strokeData.strokeId);
     const serialized = RedisUtils.serializeStrokeData(strokeData);
     
     const pipeline = this.client.pipeline();
@@ -115,11 +126,36 @@ export class RedisClient {
   }
 
   /**
+   * Scan Redis for keys matching a pattern using the incremental SCAN command,
+   * avoiding the blocking O(N) KEYS command.
+   */
+  private async scanKeysByPattern(pattern: string): Promise<string[]> {
+    const stream = this.client.scanStream({ match: pattern });
+    const keys: string[] = [];
+
+    return new Promise<string[]>((resolve, reject) => {
+      stream.on('data', (resultKeys: string[]) => {
+        for (const key of resultKeys) {
+          keys.push(key);
+        }
+      });
+
+      stream.on('end', () => {
+        resolve(keys);
+      });
+
+      stream.on('error', (err) => {
+        reject(err);
+      });
+    });
+  }
+
+  /**
    * Get all active strokes in room
    */
   async getActiveStrokesInRoom(roomId: string): Promise<Partial<StrokeData>[]> {
     const pattern = RedisUtils.getActiveStrokeKey(roomId, '*');
-    const keys = await this.client.keys(pattern);
+    const keys = await this.scanKeysByPattern(pattern);
     
     if (keys.length === 0) {
       return [];
@@ -274,18 +310,29 @@ export class RedisClient {
   }
 
   /**
-   * Subscribe to room events
+   * Subscribe to room events.
+   * Manages a single message handler per channel to prevent handler accumulation.
    */
   async subscribeToRoom(roomId: string, callback: (eventType: string, data: any) => void): Promise<void> {
     const channel = RedisUtils.getRoomEventChannel(roomId);
-    
-    this.subscriber.subscribe(channel);
-    this.subscriber.on('message', (receivedChannel, message) => {
+
+    // Remove any existing handler for this channel before adding a new one
+    const existingHandler = this.channelHandlers.get(channel);
+    if (existingHandler) {
+      this.subscriber.removeListener('message', existingHandler);
+    }
+
+    const handler = (receivedChannel: string, message: string) => {
       if (receivedChannel === channel) {
         const { type, data } = RedisUtils.parseEventPayload(message);
         callback(type, data);
       }
-    });
+    };
+
+    this.channelHandlers.set(channel, handler);
+    this.subscriber.on('message', handler);
+
+    await this.subscriber.subscribe(channel);
   }
 
   /**
@@ -293,6 +340,14 @@ export class RedisClient {
    */
   async unsubscribeFromRoom(roomId: string): Promise<void> {
     const channel = RedisUtils.getRoomEventChannel(roomId);
+
+    // Clean up the stored handler to prevent memory leaks
+    const handler = this.channelHandlers.get(channel);
+    if (handler) {
+      this.subscriber.removeListener('message', handler);
+      this.channelHandlers.delete(channel);
+    }
+
     await this.subscriber.unsubscribe(channel);
   }
 
@@ -341,7 +396,7 @@ export class RedisClient {
    */
   async clearActiveStrokesInRoom(roomId: string): Promise<void> {
     const pattern = RedisUtils.getActiveStrokeKey(roomId, '*');
-    const keys = await this.client.keys(pattern);
+    const keys = await this.scanKeysByPattern(pattern);
     
     if (keys.length > 0) {
       await this.client.del(...keys);
