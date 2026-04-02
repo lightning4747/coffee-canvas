@@ -56,4 +56,4 @@ services/physics-service/go.sum
 
 # Test files
 coverage/
-*.test
+*.test*.tsbuildinfo
