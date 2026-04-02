@@ -4,6 +4,7 @@
 console.log('Canvas Service starting...');
 
 const PORT = process.env.PORT || 3001;
+console.log(`Canvas Service will listen on port ${PORT}`);
 
 // Placeholder for Canvas Service implementation
 // This will be implemented in later tasks

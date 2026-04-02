@@ -184,7 +184,11 @@ export class RedisClient {
     return (
       results
         ?.map(([err, data]) => {
-          if (err || !data || Object.keys(data as any).length === 0)
+          if (
+            err ||
+            !data ||
+            Object.keys(data as Record<string, string>).length === 0
+          )
             return null;
           return RedisUtils.deserializeStrokeData(
             data as Record<string, string>
@@ -278,7 +282,10 @@ export class RedisClient {
   /**
    * Get pour event from cache
    */
-  async getPourEvent(roomId: string, pourId: string): Promise<any | null> {
+  async getPourEvent(
+    roomId: string,
+    pourId: string
+  ): Promise<Record<string, unknown> | null> {
     const key = RedisUtils.getActivePourKey(roomId, pourId);
     const data = await this.client.hgetall(key);
 
@@ -344,7 +351,7 @@ export class RedisClient {
   async publishToRoom(
     roomId: string,
     eventType: string,
-    data: any
+    data: unknown
   ): Promise<void> {
     const channel = RedisUtils.getRoomEventChannel(roomId);
     const payload = RedisUtils.createEventPayload(eventType, data);
@@ -358,7 +365,7 @@ export class RedisClient {
    */
   async subscribeToRoom(
     roomId: string,
-    callback: (eventType: string, data: any) => void
+    callback: (eventType: string, data: unknown) => void
   ): Promise<void> {
     const channel = RedisUtils.getRoomEventChannel(roomId);
 

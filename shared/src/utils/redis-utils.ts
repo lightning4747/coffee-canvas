@@ -43,11 +43,11 @@ export class RedisUtils {
    * TTL constants for different data types
    */
   static readonly TTL = {
-    ACTIVE_STROKE: 30,      // 30 seconds
-    ROOM_PRESENCE: 60,      // 60 seconds
-    POUR_EVENT: 10,         // 10 seconds
-    RATE_LIMIT_STROKE: 1,   // 1 second
-    RATE_LIMIT_POUR: 3,     // 3 seconds
+    ACTIVE_STROKE: 30, // 30 seconds
+    ROOM_PRESENCE: 60, // 60 seconds
+    POUR_EVENT: 10, // 10 seconds
+    RATE_LIMIT_STROKE: 1, // 1 second
+    RATE_LIMIT_POUR: 3, // 3 seconds
   } as const;
 
   /**
@@ -61,7 +61,9 @@ export class RedisUtils {
   /**
    * Serialize stroke data for Redis storage
    */
-  static serializeStrokeData(stroke: Partial<StrokeData>): Record<string, string> {
+  static serializeStrokeData(
+    stroke: Partial<StrokeData>
+  ): Record<string, string> {
     return {
       strokeId: stroke.strokeId || '',
       userId: stroke.userId || '',
@@ -78,7 +80,9 @@ export class RedisUtils {
   /**
    * Deserialize stroke data from Redis
    */
-  static deserializeStrokeData(data: Record<string, string>): Partial<StrokeData> {
+  static deserializeStrokeData(
+    data: Record<string, string>
+  ): Partial<StrokeData> {
     return {
       strokeId: data.strokeId,
       userId: data.userId,
@@ -106,7 +110,11 @@ export class RedisUtils {
   /**
    * Deserialize user presence data
    */
-  static deserializeUserPresence(data: string): { displayName: string; color: string; lastSeen: number } {
+  static deserializeUserPresence(data: string): {
+    displayName: string;
+    color: string;
+    lastSeen: number;
+  } {
     try {
       return JSON.parse(data);
     } catch {
@@ -158,7 +166,7 @@ export class RedisUtils {
   /**
    * Create standardized event payload for pub/sub
    */
-  static createEventPayload(type: string, data: any): string {
+  static createEventPayload(type: string, data: unknown): string {
     return JSON.stringify({
       type,
       data,
@@ -169,7 +177,11 @@ export class RedisUtils {
   /**
    * Parse event payload from pub/sub
    */
-  static parseEventPayload(payload: string): { type: string; data: any; timestamp: number } {
+  static parseEventPayload(payload: string): {
+    type: string;
+    data: unknown;
+    timestamp: number;
+  } {
     try {
       return JSON.parse(payload);
     } catch {
@@ -180,7 +192,11 @@ export class RedisUtils {
   /**
    * Calculate spatial chunk key for stroke distribution
    */
-  static calculateChunkKey(x: number, y: number, chunkSize: number = 1000): string {
+  static calculateChunkKey(
+    x: number,
+    y: number,
+    chunkSize: number = 1000
+  ): string {
     const chunkX = Math.floor(x / chunkSize);
     const chunkY = Math.floor(y / chunkSize);
     return `${chunkX}:${chunkY}`;
@@ -189,13 +205,16 @@ export class RedisUtils {
   /**
    * Get all chunk keys for a set of points
    */
-  static getChunkKeysForPoints(points: Point2D[], chunkSize: number = 1000): string[] {
+  static getChunkKeysForPoints(
+    points: Point2D[],
+    chunkSize: number = 1000
+  ): string[] {
     const chunkKeys = new Set<string>();
-    
+
     for (const point of points) {
       chunkKeys.add(this.calculateChunkKey(point.x, point.y, chunkSize));
     }
-    
+
     return Array.from(chunkKeys);
   }
 
@@ -210,18 +229,18 @@ export class RedisUtils {
     chunkSize: number = 1000
   ): string[] {
     const chunkKeys: string[] = [];
-    
+
     const startChunkX = Math.floor(minX / chunkSize);
     const startChunkY = Math.floor(minY / chunkSize);
     const endChunkX = Math.floor(maxX / chunkSize);
     const endChunkY = Math.floor(maxY / chunkSize);
-    
+
     for (let x = startChunkX; x <= endChunkX; x++) {
       for (let y = startChunkY; y <= endChunkY; y++) {
         chunkKeys.push(`${x}:${y}`);
       }
     }
-    
+
     return chunkKeys;
   }
 }

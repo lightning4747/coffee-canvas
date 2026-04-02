@@ -4,6 +4,7 @@
 console.log('Room Service starting...');
 
 const PORT = process.env.PORT || 3002;
+console.log(`Room Service will listen on port ${PORT}`);
 
 // Placeholder for Room Service implementation
 // This will be implemented in later tasks
