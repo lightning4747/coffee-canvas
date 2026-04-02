@@ -161,20 +161,20 @@ redis-cli ping
 
 ```sql
 -- Room statistics
-SELECT 
+SELECT
     COUNT(*) as total_rooms,
     COUNT(*) FILTER (WHERE created_at > NOW() - INTERVAL '24 hours') as recent_rooms
 FROM rooms;
 
 -- Stroke statistics
-SELECT 
+SELECT
     COUNT(*) as total_events,
     COUNT(DISTINCT stroke_id) as unique_strokes,
     COUNT(DISTINCT chunk_key) as unique_chunks
 FROM stroke_events;
 
 -- User activity
-SELECT 
+SELECT
     COUNT(*) as total_users,
     COUNT(*) FILTER (WHERE is_active = true) as active_users
 FROM users;
@@ -184,8 +184,8 @@ FROM users;
 
 ```sql
 -- Remove old inactive users (older than 7 days)
-DELETE FROM users 
-WHERE is_active = false 
+DELETE FROM users
+WHERE is_active = false
 AND left_at < NOW() - INTERVAL '7 days';
 
 -- Archive old stroke events (older than 30 days)
@@ -228,6 +228,7 @@ SELECT * FROM get_chunks_in_bounds(0, 0, 2000, 2000);
 ### Common Issues
 
 1. **PostGIS Extension Missing**
+
    ```sql
    CREATE EXTENSION IF NOT EXISTS postgis;
    ```

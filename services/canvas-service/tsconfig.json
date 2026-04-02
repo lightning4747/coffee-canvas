@@ -9,9 +9,7 @@
       "@shared/*": ["../../shared/src/*"]
     }
   },
-  "references": [
-    { "path": "../../shared" }
-  ],
+  "references": [{ "path": "../../shared" }],
   "include": ["src/**/*"],
   "exclude": ["node_modules", "dist", "**/*.test.ts"]
 }

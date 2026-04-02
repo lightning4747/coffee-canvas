@@ -32,7 +32,7 @@ This implementation plan creates a real-time collaborative drawing application w
     - Set up database migrations and seed data
     - _Requirements: 3.3, 6.1, 8.3_
 
-  - [ ]* 2.2 Write property test for spatial chunk distribution
+  - [ ]\* 2.2 Write property test for spatial chunk distribution
     - **Property 6: Spatial Chunk Distribution**
     - **Validates: Requirements 3.2, 3.3**
 
@@ -49,7 +49,7 @@ This implementation plan creates a real-time collaborative drawing application w
     - Create GraphQL resolvers for canvas history queries
     - _Requirements: 4.1, 4.2, 4.3_
 
-  - [ ]* 3.2 Write property test for authentication enforcement
+  - [ ]\* 3.2 Write property test for authentication enforcement
     - **Property 7: Authentication Enforcement**
     - **Validates: Requirements 4.5, 9.1**
 
@@ -59,11 +59,11 @@ This implementation plan creates a real-time collaborative drawing application w
     - Add canvas state serialization and compression
     - _Requirements: 1.5, 3.3, 6.3_
 
-  - [ ]* 3.4 Write property test for canvas state round-trip consistency
+  - [ ]\* 3.4 Write property test for canvas state round-trip consistency
     - **Property 3: Canvas State Round-trip Consistency**
     - **Validates: Requirements 1.5, 3.5, 6.3**
 
-  - [ ]* 3.5 Write unit tests for Room Service
+  - [ ]\* 3.5 Write unit tests for Room Service
     - Test JWT token generation and validation
     - Test room capacity limits and error handling
     - Test GraphQL resolver edge cases
@@ -76,7 +76,7 @@ This implementation plan creates a real-time collaborative drawing application w
     - Add marching squares algorithm for stain polygon generation
     - _Requirements: 2.1, 2.2, 5.2_
 
-  - [ ]* 4.2 Write property test for physics volume conservation
+  - [ ]\* 4.2 Write property test for physics volume conservation
     - **Property 4: Physics Volume Conservation**
     - **Validates: Requirements 2.2, 2.5**
 
@@ -86,11 +86,11 @@ This implementation plan creates a real-time collaborative drawing application w
     - Add opacity and visual effect mutations
     - _Requirements: 2.2, 2.4_
 
-  - [ ]* 4.4 Write property test for stain data preservation
+  - [ ]\* 4.4 Write property test for stain data preservation
     - **Property 5: Stain Data Preservation**
     - **Validates: Requirements 2.4, 6.2**
 
-  - [ ]* 4.5 Write unit tests for Physics Service
+  - [ ]\* 4.5 Write unit tests for Physics Service
     - Test fluid simulation determinism with fixed seeds
     - Test performance benchmarks for 100ms target
     - Test edge cases for boundary conditions
@@ -109,11 +109,11 @@ This implementation plan creates a real-time collaborative drawing application w
     - Add event broadcasting to room participants
     - _Requirements: 1.1, 1.2, 1.3_
 
-  - [ ]* 5.3 Write property test for real-time broadcast latency
+  - [ ]\* 5.3 Write property test for real-time broadcast latency
     - **Property 1: Real-time Broadcast Latency**
     - **Validates: Requirements 1.1, 2.1, 5.1, 5.2**
 
-  - [ ]* 5.4 Write property test for stroke independence under concurrency
+  - [ ]\* 5.4 Write property test for stroke independence under concurrency
     - **Property 2: Stroke Independence Under Concurrency**
     - **Validates: Requirements 1.4**
 
@@ -129,11 +129,11 @@ This implementation plan creates a real-time collaborative drawing application w
     - Create batch insert operations for performance optimization
     - _Requirements: 1.3, 3.2, 6.1_
 
-  - [ ]* 5.7 Write property test for stroke persistence consistency
+  - [ ]\* 5.7 Write property test for stroke persistence consistency
     - **Property 9: Stroke Persistence Consistency**
     - **Validates: Requirements 1.3, 6.1**
 
-  - [ ]* 5.8 Write unit tests for Canvas Service
+  - [ ]\* 5.8 Write unit tests for Canvas Service
     - Test Socket.IO event handlers with mock payloads
     - Test Redis operations and error handling
     - Test gRPC client integration with Physics Service
@@ -164,7 +164,7 @@ This implementation plan creates a real-time collaborative drawing application w
     - Add animation for stain application and stroke mutations
     - _Requirements: 2.3, 7.4_
 
-  - [ ]* 7.4 Write unit tests for canvas engine
+  - [ ]\* 7.4 Write unit tests for canvas engine
     - Test viewport management and coordinate transformations
     - Test drawing tool interactions and event handling
     - Test PixiJS rendering performance and memory usage
@@ -189,11 +189,11 @@ This implementation plan creates a real-time collaborative drawing application w
     - Handle canvas state synchronization after reconnection
     - _Requirements: 5.5, 6.3, 10.1_
 
-  - [ ]* 8.4 Write property test for reconnection and recovery
+  - [ ]\* 8.4 Write property test for reconnection and recovery
     - **Property 12: Reconnection and Recovery**
     - **Validates: Requirements 5.5, 10.1, 10.3**
 
-  - [ ]* 8.5 Write integration tests for real-time communication
+  - [ ]\* 8.5 Write integration tests for real-time communication
     - Test multi-user drawing scenarios with simulated clients
     - Test network disconnection and reconnection flows
     - Test canvas state synchronization accuracy
@@ -206,7 +206,7 @@ This implementation plan creates a real-time collaborative drawing application w
     - Add bounds checking for canvas coordinates and stroke properties
     - _Requirements: 9.3, 10.4_
 
-  - [ ]* 9.2 Write property test for input validation and sanitization
+  - [ ]\* 9.2 Write property test for input validation and sanitization
     - **Property 11: Input Validation and Sanitization**
     - **Validates: Requirements 9.3, 10.4**
 
@@ -216,7 +216,7 @@ This implementation plan creates a real-time collaborative drawing application w
     - Create monitoring and alerting for suspicious activity
     - _Requirements: 9.2, 5.1_
 
-  - [ ]* 9.4 Write property test for rate limiting protection
+  - [ ]\* 9.4 Write property test for rate limiting protection
     - **Property 10: Rate Limiting Protection**
     - **Validates: Requirements 9.2**
 
@@ -226,7 +226,7 @@ This implementation plan creates a real-time collaborative drawing application w
     - Implement CORS configuration for production deployment
     - _Requirements: 9.1, 9.4_
 
-  - [ ]* 9.6 Write unit tests for security measures
+  - [ ]\* 9.6 Write unit tests for security measures
     - Test JWT token validation and expiration handling
     - Test rate limiting enforcement and error responses
     - Test input validation edge cases and malformed data
@@ -251,7 +251,7 @@ This implementation plan creates a real-time collaborative drawing application w
     - Add query result caching for frequently accessed data
     - _Requirements: 3.3, 8.3_
 
-  - [ ]* 10.4 Write performance tests and benchmarks
+  - [ ]\* 10.4 Write performance tests and benchmarks
     - Test concurrent user scenarios up to 50 users per room
     - Benchmark physics simulation performance under load
     - Test database query performance with large datasets
@@ -270,7 +270,7 @@ This implementation plan creates a real-time collaborative drawing application w
     - Create error aggregation and alerting systems
     - _Requirements: 10.2, 9.5_
 
-  - [ ]* 11.3 Write integration tests for error scenarios
+  - [ ]\* 11.3 Write integration tests for error scenarios
     - Test service failure and recovery scenarios
     - Test database connection failures and reconnection
     - Test network partition and split-brain scenarios
@@ -301,7 +301,7 @@ This implementation plan creates a real-time collaborative drawing application w
     - Create alerting rules for critical system metrics
     - _Requirements: 10.1, 10.2_
 
-  - [ ]* 13.4 Write deployment verification tests
+  - [ ]\* 13.4 Write deployment verification tests
     - Test production deployment procedures
     - Verify all services start correctly in production environment
     - Test backup and disaster recovery procedures
@@ -320,7 +320,7 @@ This implementation plan creates a real-time collaborative drawing application w
     - Document deployment and configuration procedures
     - _Requirements: 7.1, 7.2, 7.3_
 
-  - [ ]* 14.3 Write property test for room capacity enforcement
+  - [ ]\* 14.3 Write property test for room capacity enforcement
     - **Property 8: Room Capacity Enforcement**
     - **Validates: Requirements 4.3**
 

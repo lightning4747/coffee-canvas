@@ -12,7 +12,7 @@ A real-time collaborative drawing application with physics-based coffee pour eff
 ## Architecture
 
 - **Canvas Service** (Node.js + Socket.IO): Real-time drawing operations
-- **Room Service** (Node.js + GraphQL): Room management and authentication  
+- **Room Service** (Node.js + GraphQL): Room management and authentication
 - **Physics Service** (Go + gRPC): Fluid simulation for coffee pour effects
 - **Frontend** (Next.js + PixiJS): WebGL-powered infinite canvas
 - **Infrastructure**: Redis, PostgreSQL, Nginx
@@ -20,6 +20,7 @@ A real-time collaborative drawing application with physics-based coffee pour eff
 ## Quick Start
 
 1. **Prerequisites**
+
    ```bash
    # Ensure you have Docker and Docker Compose installed
    docker --version
@@ -27,21 +28,23 @@ A real-time collaborative drawing application with physics-based coffee pour eff
    ```
 
 2. **Environment Setup**
+
    ```bash
    # Copy environment template
    cp .env.example .env
-   
+
    # Edit .env with your configuration (optional for development)
    ```
 
 3. **Start Development Environment**
+
    ```bash
    # Start all services
    npm run dev
-   
+
    # View logs
    npm run dev:logs
-   
+
    # Stop services
    npm run dev:down
    ```
@@ -98,7 +101,7 @@ cd services/canvas-service && npm run test
 ## Performance Targets
 
 - **Drawing Latency**: <50ms for stroke broadcast
-- **Physics Simulation**: <100ms for coffee pour calculations  
+- **Physics Simulation**: <100ms for coffee pour calculations
 - **Rendering**: 60 FPS WebGL performance
 - **Scalability**: 50 concurrent users per room
 

@@ -7,28 +7,33 @@
 ## 1. Project Overview & Core Features
 
 ### What It Is
+
 A browser-based multiplayer drawing application where multiple users share an infinite canvas in real time. Users sketch freely, and any participant can trigger a "Coffee Pour" physics event — a fluid simulation that realistically spreads across and stains existing strokes, warping, discoloring, and blending with the artwork.
 
 ### Core Features
 
 **Collaborative Drawing**
+
 - Infinite pan/zoom canvas rendered via WebGL (PixiJS or raw WebGL)
 - Multi-user cursor presence with user identity labels
 - Stroke broadcasting at <50ms perceived latency via Socket.IO
 - Optimistic local rendering with server reconciliation
 
 **Coffee Pour Physics**
+
 - User clicks a canvas point to initiate a "pour"
 - Physics Service computes fluid spread using particle-based or grid-based simulation
 - Spread interacts with stroke density and color — darker strokes absorb more, empty areas spread freely
 - Result is a set of stain overlay vectors pushed back to all clients
 
 **Room & Session Management**
+
 - Create/join rooms via short codes
 - Persistent canvas history — reconnecting users receive full vector replay
 - Room capacity limits, cursor count, and metadata managed by Room Service
 
 **Persistence & Replay**
+
 - All strokes stored as compressed vector paths (not raster)
 - Full canvas state reconstructible from event log
 - Chunked spatial indexing for efficient infinite canvas queries
@@ -80,6 +85,7 @@ graph LR
 ```
 
 **Data Flow — Coffee Pour Event**
+
 ```mermaid
 sequenceDiagram
   participant Client
@@ -102,16 +108,18 @@ sequenceDiagram
 ## 3. Microservices Breakdown
 
 ### 3.1 Frontend — `client`
-| Concern | Detail |
-|---|---|
-| Framework | Next.js 14 (App Router), TypeScript |
-| Rendering | PixiJS (WebGL) for canvas; React for UI chrome |
-| WS Client | `socket.io-client` with auto-reconnect and exponential backoff |
-| GQL Client | Apollo Client with normalized cache |
-| State | Zustand for canvas state; Apollo cache for room data |
+
+| Concern         | Detail                                                         |
+| --------------- | -------------------------------------------------------------- |
+| Framework       | Next.js 14 (App Router), TypeScript                            |
+| Rendering       | PixiJS (WebGL) for canvas; React for UI chrome                 |
+| WS Client       | `socket.io-client` with auto-reconnect and exponential backoff |
+| GQL Client      | Apollo Client with normalized cache                            |
+| State           | Zustand for canvas state; Apollo cache for room data           |
 | Infinite Canvas | Viewport transform matrix; spatial chunking for render culling |
 
 **Responsibilities:**
+
 - Maintain local stroke buffer; render optimistically before server ACK
 - Subscribe to room Socket.IO namespace; apply remote stroke/stain deltas
 - On join: fetch full stroke history via GraphQL, replay into canvas
@@ -120,15 +128,17 @@ sequenceDiagram
 ---
 
 ### 3.2 Canvas Service — `canvas-service`
-| Concern | Detail |
-|---|---|
-| Runtime | Node.js 24, TypeScript |
-| WS Library | `socket.io` with Redis Adapter (`@socket.io/redis-adapter`) for multi-instance fan-out |
-| Redis | `ioredis` for stroke cache; `@socket.io/redis-adapter` for cross-instance room broadcast |
-| gRPC Client | `@grpc/grpc-js` calling Physics Service |
-| DB | Batch-insert stroke events to PostgreSQL via `pg` |
+
+| Concern     | Detail                                                                                   |
+| ----------- | ---------------------------------------------------------------------------------------- |
+| Runtime     | Node.js 24, TypeScript                                                                   |
+| WS Library  | `socket.io` with Redis Adapter (`@socket.io/redis-adapter`) for multi-instance fan-out   |
+| Redis       | `ioredis` for stroke cache; `@socket.io/redis-adapter` for cross-instance room broadcast |
+| gRPC Client | `@grpc/grpc-js` calling Physics Service                                                  |
+| DB          | Batch-insert stroke events to PostgreSQL via `pg`                                        |
 
 **Responsibilities:**
+
 - Authenticate Socket.IO connections via JWT in handshake auth (`socket.handshake.auth.token`)
 - Accept `stroke_segment`, `stroke_end`, `coffee_pour` events
 - Cache active (in-progress) strokes in Redis with TTL
@@ -139,14 +149,16 @@ sequenceDiagram
 ---
 
 ### 3.3 Room Service — `room-service`
-| Concern | Detail |
-|---|---|
-| Runtime | Node.js 24, TypeScript |
-| API | GraphQL via Pothos schema builder + Apollo Server |
-| Auth | JWT issuance + validation |
-| DB | PostgreSQL via Prisma ORM |
+
+| Concern | Detail                                            |
+| ------- | ------------------------------------------------- |
+| Runtime | Node.js 24, TypeScript                            |
+| API     | GraphQL via Pothos schema builder + Apollo Server |
+| Auth    | JWT issuance + validation                         |
+| DB      | PostgreSQL via Prisma ORM                         |
 
 **Responsibilities:**
+
 - `createRoom` / `joinRoom` mutations — return JWT scoped to room
 - Query full stroke history for a room (paginated, spatial-filtered)
 - Manage user presence metadata (display name, color, cursor position)
@@ -156,13 +168,15 @@ sequenceDiagram
 ---
 
 ### 3.4 Physics Service — `physics-service`
-| Concern | Detail |
-|---|---|
-| Runtime | Go 1.22 |
-| Protocol | gRPC server (generated from `.proto`) |
+
+| Concern   | Detail                                                                  |
+| --------- | ----------------------------------------------------------------------- |
+| Runtime   | Go 1.22                                                                 |
+| Protocol  | gRPC server (generated from `.proto`)                                   |
 | Algorithm | Grid-based fluid simulation (cellular automaton) or SPH particle spread |
 
 **Responsibilities:**
+
 - Receive `PourRequest`: pour origin, intensity, existing stroke geometry snapshot
 - Run fluid spread simulation (configurable steps, viscosity, absorption coefficients)
 - Return `StainResult`: list of stain polygons + list of stroke IDs with mutation vectors (color shift, blur factor)
@@ -172,12 +186,13 @@ sequenceDiagram
 ---
 
 ### 3.5 Infrastructure Containers
-| Container | Role |
-|---|---|
-| `nginx` | Reverse proxy; routes `/api/graphql` → room-service, `/ws` → canvas-service |
-| `redis` | Pub/sub bus + active stroke cache |
-| `postgres` | Persistent store for rooms, users, stroke history |
-| `proto-gen` | One-shot init container that runs `protoc` to generate gRPC stubs |
+
+| Container   | Role                                                                        |
+| ----------- | --------------------------------------------------------------------------- |
+| `nginx`     | Reverse proxy; routes `/api/graphql` → room-service, `/ws` → canvas-service |
+| `redis`     | Pub/sub bus + active stroke cache                                           |
+| `postgres`  | Persistent store for rooms, users, stroke history                           |
+| `proto-gen` | One-shot init container that runs `protoc` to generate gRPC stubs           |
 
 ---
 
@@ -200,27 +215,42 @@ interface SocketPayload<T> {
 
 ```ts
 // Begin a new stroke
-socket.emit("stroke_begin", {
-  roomId: "abc123", userId: "u_01", ts: 1710000000000,
-  data: { strokeId: "s_99", tool: "pen", color: "#2c1a0e", width: 3 }
+socket.emit('stroke_begin', {
+  roomId: 'abc123',
+  userId: 'u_01',
+  ts: 1710000000000,
+  data: { strokeId: 's_99', tool: 'pen', color: '#2c1a0e', width: 3 },
 });
 
 // Stream segments (high frequency, ~60fps)
-socket.emit("stroke_segment", {
-  roomId: "abc123", userId: "u_01", ts: 1710000000016,
-  data: { strokeId: "s_99", points: [[120.5, 88.2], [122.1, 89.0], [124.3, 90.5]] }
+socket.emit('stroke_segment', {
+  roomId: 'abc123',
+  userId: 'u_01',
+  ts: 1710000000016,
+  data: {
+    strokeId: 's_99',
+    points: [
+      [120.5, 88.2],
+      [122.1, 89.0],
+      [124.3, 90.5],
+    ],
+  },
 });
 
 // Finalize stroke
-socket.emit("stroke_end", {
-  roomId: "abc123", userId: "u_01", ts: 1710000000500,
-  data: { strokeId: "s_99" }
+socket.emit('stroke_end', {
+  roomId: 'abc123',
+  userId: 'u_01',
+  ts: 1710000000500,
+  data: { strokeId: 's_99' },
 });
 
 // Trigger coffee pour
-socket.emit("coffee_pour", {
-  roomId: "abc123", userId: "u_01", ts: 1710000001000,
-  data: { pourId: "p_07", origin: [300.0, 250.0], intensity: 0.75 }
+socket.emit('coffee_pour', {
+  roomId: 'abc123',
+  userId: 'u_01',
+  ts: 1710000001000,
+  data: { pourId: 'p_07', origin: [300.0, 250.0], intensity: 0.75 },
 });
 ```
 
@@ -228,29 +258,50 @@ socket.emit("coffee_pour", {
 
 ```ts
 // Broadcast remote stroke segment to room (excluding sender)
-socket.to(roomId).emit("stroke_segment", {
-  roomId: "abc123", userId: "u_02", ts: 1710000000020,
-  data: { strokeId: "s_44", points: [[200.0, 150.0], [201.5, 151.2]] }
+socket.to(roomId).emit('stroke_segment', {
+  roomId: 'abc123',
+  userId: 'u_02',
+  ts: 1710000000020,
+  data: {
+    strokeId: 's_44',
+    points: [
+      [200.0, 150.0],
+      [201.5, 151.2],
+    ],
+  },
 });
 
 // Broadcast stain result to entire room (including sender)
-io.to(roomId).emit("stain_applied", {
-  roomId: "abc123", userId: "u_01", ts: 1710000001080,
+io.to(roomId).emit('stain_applied', {
+  roomId: 'abc123',
+  userId: 'u_01',
+  ts: 1710000001080,
   data: {
-    pourId: "p_07",
+    pourId: 'p_07',
     stainPolygons: [
-      { id: "sp_1", path: [[295,245],[310,248],[315,260],[300,265],[290,258]], opacity: 0.6, color: "#3b1f0a" }
+      {
+        id: 'sp_1',
+        path: [
+          [295, 245],
+          [310, 248],
+          [315, 260],
+          [300, 265],
+          [290, 258],
+        ],
+        opacity: 0.6,
+        color: '#3b1f0a',
+      },
     ],
     strokeMutations: [
-      { strokeId: "s_10", colorShift: "#4a2c12", blurFactor: 0.3 },
-      { strokeId: "s_14", colorShift: "#3d2010", blurFactor: 0.15 }
-    ]
-  }
+      { strokeId: 's_10', colorShift: '#4a2c12', blurFactor: 0.3 },
+      { strokeId: 's_14', colorShift: '#3d2010', blurFactor: 0.15 },
+    ],
+  },
 });
 
 // Error emitted to sender only
-socket.emit("error", {
-  data: { code: "ROOM_FULL", message: "Room has reached maximum capacity." }
+socket.emit('error', {
+  data: { code: 'ROOM_FULL', message: 'Room has reached maximum capacity.' },
 });
 ```
 
@@ -265,13 +316,13 @@ scalar JSON
 type User {
   id: ID!
   displayName: String!
-  color: String!          # Hex color assigned to this user's cursors/strokes
+  color: String! # Hex color assigned to this user's cursors/strokes
   joinedAt: DateTime!
 }
 
 type Room {
   id: ID!
-  code: String!           # Short join code e.g. "BREW-42"
+  code: String! # Short join code e.g. "BREW-42"
   name: String
   createdAt: DateTime!
   capacity: Int!
@@ -283,13 +334,18 @@ type StrokeEvent {
   id: ID!
   strokeId: String!
   userId: String!
-  type: StrokeEventType!  # BEGIN | SEGMENT | END | STAIN
-  data: JSON!             # Raw serialized path / stain data
-  chunk: String!          # Spatial chunk key e.g. "0:0", "-1:2"
+  type: StrokeEventType! # BEGIN | SEGMENT | END | STAIN
+  data: JSON! # Raw serialized path / stain data
+  chunk: String! # Spatial chunk key e.g. "0:0", "-1:2"
   createdAt: DateTime!
 }
 
-enum StrokeEventType { BEGIN SEGMENT END STAIN }
+enum StrokeEventType {
+  BEGIN
+  SEGMENT
+  END
+  STAIN
+}
 
 type AuthPayload {
   token: String!
@@ -301,8 +357,8 @@ type Query {
   room(code: String!): Room
   canvasHistory(
     roomId: ID!
-    chunks: [String!]         # Fetch only visible spatial chunks
-    cursor: String            # Pagination cursor
+    chunks: [String!] # Fetch only visible spatial chunks
+    cursor: String # Pagination cursor
     limit: Int
   ): CanvasHistoryPage!
 }
@@ -446,6 +502,7 @@ CREATE INDEX idx_active_strokes ON stroke_events(room_id)
 ```
 
 **Chunk Key Calculation:**
+
 ```ts
 const CHUNK_SIZE = 1024;
 function chunkKey(x: number, y: number): string {
@@ -456,6 +513,7 @@ function chunkKey(x: number, y: number): string {
 Strokes that span multiple chunks are written once per intersecting chunk (duplicated reference, not data — `data` column holds only the segment subset within that chunk, or a reference to the primary stroke_id).
 
 **Archival / Compression:**
+
 - Rows older than 30 days in completed rooms: `data` JSONB is compressed via `pg_lz` (automatic for TOAST).
 - Optional: batch-export cold rooms to S3 as Flatbuffers binary + store only a manifest row in PostgreSQL.
 
@@ -513,7 +571,7 @@ services:
 
   physics-service:
     build: ./services/physics
-    ports: ["50051:50051"]
+    ports: ['50051:50051']
 
   canvas-service:
     build: ./services/canvas

@@ -125,10 +125,10 @@ export interface StrokeEventData {
   tool?: string;
   color?: string;
   width?: number;
-  
+
   // For segment events
   points?: Point2D[];
-  
+
   // For stain events
   stainPolygons?: StainPolygon[];
   strokeMutations?: StrokeMutation[];

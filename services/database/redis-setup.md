@@ -14,7 +14,7 @@ Coffee & Canvas uses Redis for real-time caching and pub/sub messaging with care
 **Purpose**: Cache in-progress strokes for real-time collaboration
 
 ```redis
-HSET stroke:active:room123:stroke456 
+HSET stroke:active:room123:stroke456
   "strokeId" "stroke456"
   "userId" "user789"
   "tool" "brush"
