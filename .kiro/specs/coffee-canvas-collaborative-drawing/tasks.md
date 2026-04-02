@@ -43,7 +43,7 @@ This implementation plan creates a real-time collaborative drawing application w
     - _Requirements: 1.2, 8.4_
 
 - [ ] 3. Room Service Implementation
-  - [ ] 3.1 Create Room Service with GraphQL API
+  - [x] 3.1 Create Room Service with GraphQL API
     - Implement room creation, joining, and JWT token generation
     - Add user authentication and room capacity management
     - Create GraphQL resolvers for canvas history queries
