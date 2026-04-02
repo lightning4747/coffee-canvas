@@ -32,7 +32,7 @@ This implementation plan creates a real-time collaborative drawing application w
     - Set up database migrations and seed data
     - _Requirements: 3.3, 6.1, 8.3_
 
-  - [ ]\* 2.2 Write property test for spatial chunk distribution
+  - [x] 2.2 Write property test for spatial chunk distribution
     - **Property 6: Spatial Chunk Distribution**
     - **Validates: Requirements 3.2, 3.3**
 

@@ -44,44 +44,44 @@ A browser-based multiplayer drawing application where multiple users share an in
 
 ```mermaid
 graph LR
-  subgraph "Client (Browser)"
-    A["Next.js App\n(React + WebGL Canvas)"]
-  end
+    subgraph ClientLayer ["Client (Browser)"]
+        A["Next.js App<br/>(React + WebGL Canvas)"]
+    end
 
-  subgraph "API Gateway / Reverse Proxy"
-    B["Nginx / Traefik"]
-  end
+    subgraph GatewayLayer ["Gateway / Proxy"]
+        B["Nginx / Traefik"]
+    end
 
-  subgraph "Canvas Service\n(Node.js)"]
-    C["Socket.IO Server\n(socket.io)"]
-    D["Redis Pub/Sub\nStroke Fan-out"]
-  end
+    subgraph CanvasLayer ["Canvas Service (Node.js)"]
+        C["Socket.IO Server<br/>(socket.io)"]
+        D["Redis Pub/Sub<br/>Stroke Fan-out"]
+    end
 
-  subgraph "Room Service\n(Node.js)"
-    E["GraphQL Server\n(Apollo / Yoga)"]
-    F["Session Store"]
-  end
+    subgraph RoomLayer ["Room Service (Node.js)"]
+        E["GraphQL Server<br/>(Apollo / Yoga)"]
+        F["Session Store"]
+    end
 
-  subgraph "Physics Service\n(Go)"
-    G["gRPC Server\nFluid Simulation"]
-  end
+    subgraph PhysicsLayer ["Physics Service (Go)"]
+        G["gRPC Server<br/>Fluid Simulation"]
+    end
 
-  subgraph "Databases"
-    H[("Redis\nActive Strokes\n+ Pub/Sub")]
-    I[("PostgreSQL\nRooms + Vector\nHistory")]
-  end
+    subgraph DataLayer ["Databases"]
+        H[("Redis<br/>Active Strokes<br/>+ Pub/Sub")]
+        I[("PostgreSQL<br/>Rooms + Vector<br/>History")]
+    end
 
-  A -- "Socket.IO\ndraw events" --> B
-  A -- "GraphQL\nHTTP/2" --> B
-  B -- "Socket.IO proxy" --> C
-  B -- "HTTP proxy" --> E
-  C <--> D
-  D <--> H
-  C -- "gRPC\nCoffeePhysics RPC" --> G
-  G -- "returns StainResult" --> C
-  E <--> F
-  E <--> I
-  C -- "persist strokes\nbatch write" --> I
+    A -- "Socket.IO draw events" --> B
+    A -- "GraphQL HTTP/2" --> B
+    B -- "Socket.IO proxy" --> C
+    B -- "HTTP proxy" --> E
+    C <--> D
+    D <--> H
+    C -- "gRPC CoffeePhysics RPC" --> G
+    G -- "returns StainResult" --> C
+    E <--> F
+    E <--> I
+    C -- "persist strokes batch write" --> I
 ```
 
 **Data Flow — Coffee Pour Event**

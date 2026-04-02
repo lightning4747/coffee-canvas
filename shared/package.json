@@ -7,6 +7,10 @@
   "scripts": {
     "lint": "eslint src/**/*.ts",
     "build": "tsc",
+    "test": "jest --passWithNoTests",
+    "test:ci": "npm run test",
+    "test:watch": "jest --watch",
+    "test:coverage": "jest --coverage",
     "proto:generate": "npm run proto:ts && npm run proto:go",
     "proto:ts": "protoc --plugin=protoc-gen-ts=./node_modules/.bin/protoc-gen-ts --ts_out=./src/generated --proto_path=./proto ./proto/*.proto",
     "proto:go": "protoc --go_out=../services/physics-service --go-grpc_out=../services/physics-service --proto_path=./proto ./proto/*.proto",
@@ -18,9 +22,13 @@
     "protobufjs": "^7.2.0"
   },
   "devDependencies": {
+    "@types/jest": "^29.5.14",
     "@types/node": "^24.0.0",
     "@types/pg": "^8.20.0",
+    "fast-check": "^4.6.0",
+    "jest": "^29.7.0",
     "protoc-gen-ts": "^0.8.0",
+    "ts-jest": "^29.4.9",
     "typescript": "^5.0.0"
   }
 }

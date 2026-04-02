@@ -4,8 +4,13 @@ import { Point2D } from '../types';
 export const CHUNK_SIZE = 1000; // pixels per chunk
 
 export function calculateChunkKey(point: Point2D): string {
-  const chunkX = Math.floor(point.x / CHUNK_SIZE);
-  const chunkY = Math.floor(point.y / CHUNK_SIZE);
+  let chunkX = Math.floor(point.x / CHUNK_SIZE);
+  let chunkY = Math.floor(point.y / CHUNK_SIZE);
+
+  // Normalize -0 to 0 to ensure consistent string representation
+  if (Object.is(chunkX, -0)) chunkX = 0;
+  if (Object.is(chunkY, -0)) chunkY = 0;
+
   return `${chunkX}:${chunkY}`;
 }
 
@@ -67,6 +72,6 @@ export function generateRoomCode(): string {
 }
 
 // Export Redis utilities
-export * from './database.js';
-export * from './redis-client.js';
-export * from './redis-utils.js';
+export * from './database';
+export * from './redis-client';
+export * from './redis-utils';

@@ -7,10 +7,10 @@
     "dev": "nodemon --exec ts-node src/index.ts",
     "build": "tsc",
     "start": "node dist/index.js",
-    "test": "jest",
+    "test": "jest --passWithNoTests",
+    "test:ci": "npm run test",
     "lint": "eslint src/**/*.ts",
-    "clean": "rm -rf dist",
-    "test:ci": "echo 'No tests implemented yet' && exit 0"
+    "clean": "rm -rf dist"
   },
   "dependencies": {
     "socket.io": "^4.7.0",
