@@ -3,6 +3,17 @@
 import { Pool, PoolClient, QueryResult, QueryResultRow } from 'pg';
 import { Room, StrokeEvent, User, StrokeEventData } from '../types/index.js';
 
+interface StrokeEventRow extends QueryResultRow {
+  id: string;
+  room_id: string;
+  stroke_id: string;
+  user_id: string;
+  event_type: StrokeEvent['eventType'];
+  chunk_key: string;
+  data: StrokeEventData;
+  created_at: Date;
+}
+
 export class DatabaseManager {
   private pool: Pool;
 
@@ -14,7 +25,7 @@ export class DatabaseManager {
       connectionTimeoutMillis: 2000,
     });
 
-    this.pool.on('error', err => {
+    this.pool.on('error', (err: Error) => {
       console.error('Unexpected error on idle client', err);
     });
   }
@@ -168,13 +179,21 @@ export class DatabaseManager {
       [roomId]
     );
 
-    return result.rows.map(row => ({
-      id: row.id,
-      displayName: row.display_name,
-      color: row.color,
-      joinedAt: row.joined_at ?? new Date(),
-      leftAt: row.left_at ?? undefined,
-    }));
+    return result.rows.map(
+      (row: {
+        id: string;
+        display_name: string;
+        color: string;
+        joined_at: Date | null;
+        left_at: Date | null;
+      }) => ({
+        id: row.id,
+        displayName: row.display_name,
+        color: row.color,
+        joinedAt: row.joined_at ?? new Date(),
+        leftAt: row.left_at ?? undefined,
+      })
+    );
   }
 
   // ============================================================================
@@ -220,7 +239,7 @@ export class DatabaseManager {
     };
   }
 
-  private mapStrokeRow(row: QueryResultRow): StrokeEvent {
+  private mapStrokeRow(row: StrokeEventRow): StrokeEvent {
     return {
       id: row.id,
       roomId: row.room_id,
@@ -240,7 +259,7 @@ export class DatabaseManager {
     if (chunkKeys.length === 0) return [];
     const placeholders = chunkKeys.map((_, i) => `$${i + 2}`).join(', ');
 
-    const result = await this.query(
+    const result = await this.query<StrokeEventRow>(
       `SELECT id, room_id, stroke_id, user_id, event_type, chunk_key, data, created_at
        FROM stroke_events
        WHERE room_id = $1 AND chunk_key IN (${placeholders})
@@ -258,7 +277,7 @@ export class DatabaseManager {
     maxX: number,
     maxY: number
   ): Promise<StrokeEvent[]> {
-    const result = await this.query(
+    const result = await this.query<StrokeEventRow>(
       `SELECT id, stroke_id, user_id, event_type, data, created_at, room_id, chunk_key 
        FROM get_strokes_in_viewport($1, $2, $3, $4, $5)`,
       [roomId, minX, minY, maxX, maxY]
@@ -281,7 +300,11 @@ export class DatabaseManager {
     activeUsers: number;
     totalStrokes: number;
   }> {
-    const result = await this.query(`
+    const result = await this.query<{
+      total_rooms: string;
+      active_users: string;
+      total_strokes: string;
+    }>(`
       SELECT 
         (SELECT COUNT(*) FROM rooms) as total_rooms,
         (SELECT COUNT(*) FROM users WHERE is_active = true) as active_users,
