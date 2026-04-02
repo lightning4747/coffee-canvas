@@ -65,3 +65,9 @@ export function generateRoomCode(): string {
   }
   return result;
 }
+
+// Export Redis utilities
+export * from './database.js';
+export * from './redis-client.js';
+export * from './redis-utils.js';
+

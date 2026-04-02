@@ -25,8 +25,8 @@ This implementation plan creates a real-time collaborative drawing application w
     - Configure Docker registry and deployment scripts
     - _Requirements: 8.1_
 
-- [ ] 2. Database Schema and Spatial Indexing
-  - [ ] 2.1 Design and implement PostgreSQL database schema
+- [x] 2. Database Schema and Spatial Indexing
+  - [x] 2.1 Design and implement PostgreSQL database schema
     - Create tables for rooms, users, stroke_events with spatial chunk indexing
     - Implement spatial indexing using PostGIS for efficient chunk queries
     - Set up database migrations and seed data
@@ -36,7 +36,7 @@ This implementation plan creates a real-time collaborative drawing application w
     - **Property 6: Spatial Chunk Distribution**
     - **Validates: Requirements 3.2, 3.3**
 
-  - [ ] 2.3 Implement Redis data structures and TTL policies
+  - [x] 2.3 Implement Redis data structures and TTL policies
     - Configure Redis for active stroke caching with 30-second TTL
     - Set up pub/sub channels for real-time event broadcasting
     - Implement LRU eviction policies for memory management

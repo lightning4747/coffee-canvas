@@ -10,6 +10,7 @@ build/
 # Environment files
 .env.local
 .env.production
+.env
 
 # Logs
 *.log
@@ -55,4 +56,4 @@ services/physics-service/go.sum
 
 # Test files
 coverage/
-*.test
+*.test*.tsbuildinfo

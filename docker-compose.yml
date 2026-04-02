@@ -4,9 +4,10 @@ services:
     image: redis:7-alpine
     ports:
       - "6379:6379"
-    command: redis-server --appendonly yes
+    command: redis-server /usr/local/etc/redis/redis.conf
     volumes:
       - redis_data:/data
+      - ./services/database/redis-config.conf:/usr/local/etc/redis/redis.conf:ro
     environment:
       - REDIS_PASSWORD=${REDIS_PASSWORD:-}
     healthcheck:

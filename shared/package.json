@@ -5,6 +5,7 @@
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "scripts": {
+    "lint": "eslint src/**/*.ts",
     "build": "tsc",
     "proto:generate": "npm run proto:ts && npm run proto:go",
     "proto:ts": "protoc --plugin=protoc-gen-ts=./node_modules/.bin/protoc-gen-ts --ts_out=./src/generated --proto_path=./proto ./proto/*.proto",
@@ -12,11 +13,14 @@
     "clean": "rm -rf dist src/generated"
   },
   "dependencies": {
+    "ioredis": "^5.10.1",
+    "pg": "^8.20.0",
     "protobufjs": "^7.2.0"
   },
   "devDependencies": {
-    "typescript": "^5.0.0",
+    "@types/node": "^24.0.0",
+    "@types/pg": "^8.20.0",
     "protoc-gen-ts": "^0.8.0",
-    "@types/node": "^24.0.0"
+    "typescript": "^5.0.0"
   }
 }
