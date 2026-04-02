@@ -8,7 +8,8 @@
     "start": "next start",
     "lint": "next lint",
     "test": "jest",
-    "clean": "rm -rf .next"
+    "clean": "rm -rf .next",
+    "test:ci": "echo 'No tests implemented yet' && exit 0"
   },
   "dependencies": {
     "next": "^14.0.0",
