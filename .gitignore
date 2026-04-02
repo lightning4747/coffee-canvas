@@ -51,8 +51,6 @@ services/physics-service/proto/
 *.db
 *.sqlite
 
-# Go specific
-services/physics-service/go.sum
 
 # Test files
 coverage/
