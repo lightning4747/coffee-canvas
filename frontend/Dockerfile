@@ -3,37 +3,44 @@ FROM node:24-alpine AS builder
 
 WORKDIR /app
 
-# Copy package files
-COPY frontend/package*.json ./
-RUN mkdir -p ../shared
-COPY shared/package*.json ../shared/
+# Copy root package.json for workspace setup
+COPY package*.json ./
 
-# Install all dependencies (including dev dependencies for building)
-RUN npm install
+# Copy frontend and shared package files
+COPY frontend/package*.json ./frontend/
+COPY shared/package*.json ./shared/
+
+# Install dependencies
+RUN npm ci
 
 # Copy source code
-COPY frontend/ .
-COPY shared/ ../shared/
+COPY frontend/ ./frontend/
+COPY shared/ ./shared/
 
-# Build the application
-RUN npm run build
+# Build shared first, then frontend
+RUN npm run build --workspace=shared
+RUN npm run build --workspace=@coffee-canvas/frontend
 
 # Production stage
 FROM node:24-alpine AS production
 
 WORKDIR /app
 
-# Copy package files
-COPY frontend/package*.json ./
+# Copy root package.json for workspace setup
+COPY package*.json ./
+
+# Copy frontend package files
+COPY frontend/package*.json ./frontend/
 
 # Install only production dependencies
-RUN npm install --omit=dev
+RUN npm ci --omit=dev --workspace=@coffee-canvas/frontend
 
 # Copy built application from builder stage
-COPY --from=builder /app/.next ./.next
-COPY --from=builder /app/public ./public
-COPY --from=builder /app/next.config.js ./next.config.js
+COPY --from=builder /app/frontend/.next ./frontend/.next
+COPY --from=builder /app/frontend/public ./frontend/public
+COPY --from=builder /app/frontend/next.config.js ./frontend/next.config.js
 
 EXPOSE 3000
 
+WORKDIR /app/frontend
 CMD ["npm", "start"]
