@@ -36,13 +36,17 @@ export class DatabaseManager {
    */
   async query<T extends QueryResultRow = QueryResultRow>(
     text: string,
-    params?: unknown[]
+    params?: unknown[],
+    client?: PoolClient
   ): Promise<QueryResult<T>> {
-    const client = await this.pool.connect();
-    try {
+    if (client) {
       return await client.query<T>(text, params);
+    }
+    const connectClient = await this.pool.connect();
+    try {
+      return await connectClient.query<T>(text, params);
     } finally {
-      client.release();
+      connectClient.release();
     }
   }
 
@@ -74,7 +78,8 @@ export class DatabaseManager {
   async createRoom(
     code: string,
     name?: string,
-    capacity: number = 10
+    capacity: number = 10,
+    client?: PoolClient
   ): Promise<Room> {
     const result = await this.query<{
       id: string;
@@ -86,7 +91,8 @@ export class DatabaseManager {
       `INSERT INTO rooms (code, name, capacity) 
        VALUES ($1, $2, $3) 
        RETURNING id, code, name, capacity, created_at`,
-      [code, name, capacity]
+      [code, name, capacity],
+      client
     );
 
     const row = result.rows[0];
@@ -138,7 +144,8 @@ export class DatabaseManager {
   async addUserToRoom(
     roomId: string,
     displayName: string,
-    color: string
+    color: string,
+    client?: PoolClient
   ): Promise<User> {
     const result = await this.query<{
       id: string;
@@ -151,7 +158,8 @@ export class DatabaseManager {
       `INSERT INTO users (room_id, display_name, color) 
        VALUES ($1, $2, $3) 
        RETURNING id, room_id, display_name, color, joined_at, left_at`,
-      [roomId, displayName, color]
+      [roomId, displayName, color],
+      client
     );
 
     const row = result.rows[0];

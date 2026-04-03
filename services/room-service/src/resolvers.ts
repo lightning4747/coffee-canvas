@@ -189,28 +189,51 @@ export const resolvers = {
       }
 
       try {
-        // Generate unique room code
-        let roomCode: string;
-        let attempts = 0;
         const maxAttempts = 10;
+        let room: Room | undefined;
+        let user: User | undefined;
 
-        do {
-          roomCode = generateRoomCode();
-          const existingRoom = await db.findRoomByCode(roomCode);
-          if (!existingRoom) break;
+        for (let attempts = 0; attempts < maxAttempts; attempts++) {
+          try {
+            const roomCode = generateRoomCode();
 
-          attempts++;
-          if (attempts >= maxAttempts) {
-            throw new Error('Failed to generate unique room code');
+            // Execute in a single transaction
+            const result = await db.transaction(async client => {
+              const r = await db.createRoom(
+                roomCode,
+                input.name,
+                capacity,
+                client
+              );
+              const userColor = assignUserColor(r.id);
+              const u = await db.addUserToRoom(
+                r.id,
+                'Room Creator',
+                userColor,
+                client
+              );
+              return { r, u };
+            });
+
+            room = result.r;
+            user = result.u;
+            break; // Success
+          } catch (err: unknown) {
+            const error = err as Error & { code?: string };
+            // Check for Postgres unique violation (23505)
+            if (error.code === '23505') {
+              if (attempts === maxAttempts - 1) {
+                throw new Error('Failed to generate unique room code');
+              }
+              continue; // Retry
+            }
+            throw error; // Other error, rethrow
           }
-        } while (attempts < maxAttempts);
+        }
 
-        // Create room
-        const room = await db.createRoom(roomCode, input.name, capacity);
-
-        // Create initial user (room creator)
-        const userColor = assignUserColor(room.id);
-        const user = await db.addUserToRoom(room.id, 'Room Creator', userColor);
+        if (!room || !user) {
+          throw new Error('Failed to generate unique room code');
+        }
 
         // Generate JWT token
         const token = generateJWT(user, room);
