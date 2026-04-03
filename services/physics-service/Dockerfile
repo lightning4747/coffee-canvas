@@ -10,8 +10,6 @@ RUN go mod download
 # Copy source code
 COPY services/physics-service/ .
 
-# Copy proto files from shared
-COPY shared/proto/ ./proto/
 
 RUN CGO_ENABLED=0 GOOS=linux go build -o physics-service .
 
