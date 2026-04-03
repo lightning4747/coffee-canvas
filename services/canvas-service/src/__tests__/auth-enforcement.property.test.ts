@@ -7,7 +7,15 @@ import {
   StrokeEndPayload,
   StrokeSegmentPayload,
 } from '../../../../shared/src/types/index.js';
-import { validateJWT } from '../../../room-service/src/auth';
+
+const validateJWT = async (token: string): Promise<JWTPayload> => {
+  const jwt = require('jsonwebtoken');
+  const JWT_SECRET = process.env.JWT_SECRET || 'dev-secret-key';
+  return jwt.verify(token, JWT_SECRET, {
+    issuer: 'coffee-canvas-room-service',
+    audience: 'coffee-canvas-app',
+  }) as JWTPayload;
+};
 
 /**
  * Property 7: Authentication Enforcement
