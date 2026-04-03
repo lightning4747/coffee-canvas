@@ -271,30 +271,38 @@ export const resolvers = {
       }
 
       try {
-        // Find room by code
-        const room = await db.findRoomByCode(input.code.toUpperCase());
-        if (!room) {
-          throw new Error('Room not found');
-        }
+        const { room, user } = await db.transaction(async client => {
+          // Find room by code with row lock
+          const r = await db.getRoomForUpdateByCode(
+            input.code.toUpperCase(),
+            client
+          );
+          if (!r) {
+            throw new Error('Room not found');
+          }
 
-        // Check room capacity
-        if (room.participantCount >= room.capacity) {
-          throw new Error('Room is at capacity');
-        }
+          // Check room capacity
+          if (r.participantCount >= r.capacity) {
+            throw new Error('Room is at capacity');
+          }
 
-        // Get existing users to determine available colors
-        const existingUsers = await db.getActiveUsersInRoom(room.id);
-        const existingColors = existingUsers.map((u: User) => u.color);
+          // Get existing users to determine available colors
+          const existingUsers = await db.getActiveUsersInRoom(r.id, client);
+          const existingColors = existingUsers.map((u: User) => u.color);
 
-        // Assign color to new user
-        const userColor = assignUserColor(room.id, existingColors);
+          // Assign color to new user
+          const userColor = assignUserColor(r.id, existingColors);
 
-        // Add user to room
-        const user = await db.addUserToRoom(
-          room.id,
-          input.displayName,
-          userColor
-        );
+          // Add user to room
+          const u = await db.addUserToRoom(
+            r.id,
+            input.displayName,
+            userColor,
+            client
+          );
+
+          return { room: r, user: u };
+        });
 
         // Generate JWT token
         const token = generateJWT(user, room);
