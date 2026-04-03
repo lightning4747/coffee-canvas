@@ -31,14 +31,15 @@ var marchingSquaresTable = [16][][2]int{
 	{},                     // 1111
 }
 
+// edge represents a single marching-squares line segment.
+type edge struct{ x0, y0, x1, y1 float64 }
+
 // ExtractStainPolygons runs marching squares on the fluid grid and returns stain polygons.
 func ExtractStainPolygons(grid *SimGrid, initialVolume float64) []*pb.StainPolygon {
 	g := grid.Cells
 	sizeX := grid.SizeX
 	sizeY := grid.SizeY
 
-	// Collect all edge segments produced by marching squares
-	type edge struct{ x0, y0, x1, y1 float64 }
 	var edges []edge
 
 	for x := 0; x < sizeX-1; x++ {
@@ -126,7 +127,7 @@ func ExtractStainPolygons(grid *SimGrid, initialVolume float64) []*pb.StainPolyg
 }
 
 // chainEdges connects raw marching squares edges into closed or open polylines.
-func chainEdges(edges []struct{ x0, y0, x1, y1 float64 }) [][][2]float64 {
+func chainEdges(edges []edge) [][][2]float64 {
 	type pt = [2]float64
 	type seg struct{ a, b pt }
 
