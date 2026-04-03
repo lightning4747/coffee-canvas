@@ -146,7 +146,7 @@ interface CanvasHistoryInput {
 
 - Handles incomplete stroke sequences
 - Logs warnings for missing begin events
-- Returns empty results for invalid inputs
+- Returns an empty result only for empty `chunkKeys` lists. Invalid chunk keys are rejected during `CanvasHistoryManager.getCanvasHistory` validation and produce errors, ensuring clients don't treat validation failures as successful empty pages.
 
 ### Database Error Recovery
 
