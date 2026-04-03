@@ -44,6 +44,12 @@ RUN npm ci --omit=dev
 COPY --from=builder /app/services/canvas-service/dist ./services/canvas-service/dist
 COPY --from=builder /app/shared/dist ./shared/dist
 
+# Create non-root user and set permissions
+RUN addgroup -S app && adduser -S app -G app \
+    && chown -R app:app /app
+
+USER app
+
 EXPOSE 3001
 
 WORKDIR /app/services/canvas-service
