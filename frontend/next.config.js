@@ -2,9 +2,6 @@
 const nextConfig = {
   reactStrictMode: true,
   swcMinify: true,
-  experimental: {
-    appDir: false,
-  },
   webpack: config => {
     // Handle PixiJS and other canvas libraries
     config.resolve.fallback = {

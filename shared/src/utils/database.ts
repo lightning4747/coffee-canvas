@@ -1,7 +1,7 @@
 // Database connection and query utilities for Coffee & Canvas
 
 import { Pool, PoolClient, QueryResult, QueryResultRow } from 'pg';
-import { Room, StrokeEvent, User, StrokeEventData } from '../types/index.js';
+import { Room, StrokeEvent, StrokeEventData, User } from '../types/index.js';
 
 interface StrokeEventRow extends QueryResultRow {
   id: string;
@@ -36,13 +36,17 @@ export class DatabaseManager {
    */
   async query<T extends QueryResultRow = QueryResultRow>(
     text: string,
-    params?: unknown[]
+    params?: unknown[],
+    client?: PoolClient
   ): Promise<QueryResult<T>> {
-    const client = await this.pool.connect();
-    try {
+    if (client) {
       return await client.query<T>(text, params);
+    }
+    const connectClient = await this.pool.connect();
+    try {
+      return await connectClient.query<T>(text, params);
     } finally {
-      client.release();
+      connectClient.release();
     }
   }
 
@@ -74,7 +78,8 @@ export class DatabaseManager {
   async createRoom(
     code: string,
     name?: string,
-    capacity: number = 10
+    capacity: number = 10,
+    client?: PoolClient
   ): Promise<Room> {
     const result = await this.query<{
       id: string;
@@ -86,7 +91,8 @@ export class DatabaseManager {
       `INSERT INTO rooms (code, name, capacity) 
        VALUES ($1, $2, $3) 
        RETURNING id, code, name, capacity, created_at`,
-      [code, name, capacity]
+      [code, name, capacity],
+      client
     );
 
     const row = result.rows[0];
@@ -131,6 +137,43 @@ export class DatabaseManager {
     };
   }
 
+  async getRoomForUpdateByCode(
+    code: string,
+    client: PoolClient
+  ): Promise<Room | null> {
+    const result = await client.query<{
+      id: string;
+      code: string;
+      name: string | null;
+      capacity: number;
+      created_at: Date;
+    }>(
+      `SELECT id, code, name, capacity, created_at
+       FROM rooms 
+       WHERE code = $1
+       FOR UPDATE`,
+      [code]
+    );
+
+    if (result.rows.length === 0) return null;
+
+    const row = result.rows[0];
+
+    const countResult = await client.query<{ count: string }>(
+      `SELECT COUNT(id) as count FROM users WHERE room_id = $1 AND is_active = true`,
+      [row.id]
+    );
+
+    return {
+      id: row.id,
+      code: row.code,
+      name: row.name ?? undefined,
+      capacity: row.capacity,
+      createdAt: row.created_at,
+      participantCount: parseInt(countResult.rows[0].count),
+    };
+  }
+
   // ============================================================================
   // USER OPERATIONS
   // ============================================================================
@@ -138,7 +181,8 @@ export class DatabaseManager {
   async addUserToRoom(
     roomId: string,
     displayName: string,
-    color: string
+    color: string,
+    client?: PoolClient
   ): Promise<User> {
     const result = await this.query<{
       id: string;
@@ -151,7 +195,8 @@ export class DatabaseManager {
       `INSERT INTO users (room_id, display_name, color) 
        VALUES ($1, $2, $3) 
        RETURNING id, room_id, display_name, color, joined_at, left_at`,
-      [roomId, displayName, color]
+      [roomId, displayName, color],
+      client
     );
 
     const row = result.rows[0];
@@ -164,7 +209,10 @@ export class DatabaseManager {
     };
   }
 
-  async getActiveUsersInRoom(roomId: string): Promise<User[]> {
+  async getActiveUsersInRoom(
+    roomId: string,
+    client?: PoolClient
+  ): Promise<User[]> {
     const result = await this.query<{
       id: string;
       display_name: string;
@@ -176,7 +224,8 @@ export class DatabaseManager {
        FROM users 
        WHERE room_id = $1 AND is_active = true
        ORDER BY joined_at ASC`,
-      [roomId]
+      [roomId],
+      client
     );
 
     return result.rows.map(
@@ -268,6 +317,40 @@ export class DatabaseManager {
     );
 
     return result.rows.map(this.mapStrokeRow);
+  }
+
+  async getStrokeEventsInChunksWithPagination(
+    roomId: string,
+    chunkKeys: string[],
+    cursor?: Date,
+    limit: number = 100
+  ): Promise<{ events: StrokeEvent[]; hasMore: boolean }> {
+    if (chunkKeys.length === 0) return { events: [], hasMore: false };
+
+    const chunkPlaceholders = chunkKeys.map((_, i) => `$${i + 2}`).join(', ');
+    let query = `
+      SELECT id, room_id, stroke_id, user_id, event_type, chunk_key, data, created_at
+      FROM stroke_events
+      WHERE room_id = $1 AND chunk_key IN (${chunkPlaceholders})
+    `;
+
+    const params: any[] = [roomId, ...chunkKeys];
+
+    if (cursor) {
+      query += ` AND created_at > $${params.length + 1}`;
+      params.push(cursor);
+    }
+
+    // Query for limit + 1 to check if there are more results
+    query += ` ORDER BY created_at ASC LIMIT $${params.length + 1}`;
+    params.push(limit + 1);
+
+    const result = await this.query<StrokeEventRow>(query, params);
+
+    const hasMore = result.rows.length > limit;
+    const events = result.rows.slice(0, limit).map(this.mapStrokeRow);
+
+    return { events, hasMore };
   }
 
   async getStrokeEventsInViewport(
