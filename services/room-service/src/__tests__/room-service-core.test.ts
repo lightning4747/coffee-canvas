@@ -217,12 +217,12 @@ describe('Room Service Core Functionality', () => {
       }
     });
 
-    it('should handle case-insensitive scenarios', () => {
+    it('should handle case-insensitive scenarios', async () => {
       // Test that our JWT validation is case-sensitive for security
       const token = generateJWT(mockUser, mockRoom);
       const upperToken = token.toUpperCase();
 
-      expect(validateJWT(upperToken)).rejects.toThrow();
+      await expect(validateJWT(upperToken)).rejects.toThrow();
     });
 
     it('should handle special characters in user data', async () => {
