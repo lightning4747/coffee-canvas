@@ -44,6 +44,36 @@ export interface StrokeMutation {
   opacityDelta: number;
 }
 
+export interface SerializedCanvasState {
+  strokes: Array<{
+    strokeId: string;
+    userId: string;
+    tool: string;
+    color: string;
+    width: number;
+    points: Point2D[];
+    opacity: number;
+    createdAt: string;
+    mutations?: Array<{
+      strokeId: string;
+      colorShift: string;
+      blurFactor: number;
+      opacityDelta: number;
+    }>;
+  }>;
+  stains: Array<{
+    id: string;
+    polygons: Array<{
+      id: string;
+      path: Point2D[];
+      opacity: number;
+      color: string;
+    }>;
+    createdAt: string;
+  }>;
+  lastUpdated: string;
+}
+
 export interface PaginatedCanvasHistory {
   events: StrokeEvent[];
   cursor?: string;
@@ -158,7 +188,7 @@ export class CanvasHistoryManager {
   /**
    * Serialize canvas state for efficient network transfer
    */
-  serializeCanvasState(canvasState: CanvasState): Record<string, unknown> {
+  serializeCanvasState(canvasState: CanvasState): SerializedCanvasState {
     return {
       strokes: Array.from(canvasState.strokes.values()).map(stroke => ({
         strokeId: stroke.strokeId,

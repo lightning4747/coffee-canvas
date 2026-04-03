@@ -65,7 +65,9 @@ export function validateJWT(token: string): Promise<JWTPayload> {
   });
 }
 
-export function extractJWTFromRequest(req: any): string | null {
+export function extractJWTFromRequest(req: {
+  headers: { authorization?: string };
+}): string | null {
   const authHeader = req.headers.authorization;
   if (!authHeader) return null;
 

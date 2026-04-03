@@ -77,7 +77,8 @@ async function startServer() {
 
     await server.start();
     server.applyMiddleware({
-      app: app as any, // Type assertion to handle Express version compatibility
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      app: app as any, // Type assertion needed for Express/Apollo Server compatibility
       path: '/graphql',
       cors: false, // We handle CORS above
     });
