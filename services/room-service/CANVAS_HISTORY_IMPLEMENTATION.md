@@ -219,8 +219,8 @@ interface CanvasHistoryInput {
 
 ### Authentication & Authorization
 
-- JWT token validation for all requests
-- Room-scoped access control
+- JWT token validation is required for protected room-scoped operations only. Unauthenticated calls are explicitly allowed for public resolver entrypoints (`createRoom`, `joinRoom`, `healthCheck`) as exceptions.
+- Room-scoped access control applies natively to the protected resolvers.
 - Input sanitization and validation
 
 ### Data Protection

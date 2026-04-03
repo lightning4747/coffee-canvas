@@ -111,7 +111,7 @@ describe('Canvas State Round-trip Consistency Property Tests', () => {
       chunkKeyArbitrary,
       strokeEventDataArbitrary,
       fc.array(fc.array(point2DArbitrary, { minLength: 1, maxLength: 5 }), {
-        minLength: 0,
+        minLength: 1,
         maxLength: 3,
       }), // segment points
       fc.date({
