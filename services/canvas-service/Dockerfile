@@ -6,8 +6,10 @@ WORKDIR /app
 # Copy root package.json for workspace setup
 COPY package*.json ./
 
-# Copy service and shared package files
+# Copy all workspace manifests
 COPY services/canvas-service/package*.json ./services/canvas-service/
+COPY services/room-service/package*.json ./services/room-service/
+COPY frontend/package*.json ./frontend/
 COPY shared/package*.json ./shared/
 
 # Install dependencies
@@ -29,8 +31,10 @@ WORKDIR /app
 # Copy root package.json for workspace setup
 COPY package*.json ./
 
-# Copy service and shared package files
+# Copy all workspace manifests
 COPY services/canvas-service/package*.json ./services/canvas-service/
+COPY services/room-service/package*.json ./services/room-service/
+COPY frontend/package*.json ./frontend/
 COPY shared/package*.json ./shared/
 
 # Install only production dependencies
