@@ -108,7 +108,7 @@ async function startServer() {
     });
 
     // Start HTTP server
-    app.listen(PORT, () => {
+    const httpServer = app.listen(PORT, () => {
       console.log(`Room Service running on port ${PORT}`);
       console.log(
         `GraphQL endpoint: http://localhost:${PORT}${server.graphqlPath}`
@@ -119,6 +119,7 @@ async function startServer() {
     // Graceful shutdown
     const shutdown = async () => {
       console.log('Room Service shutting down...');
+      httpServer.close();
       await server.stop();
       await db.close();
       process.exit(0);
