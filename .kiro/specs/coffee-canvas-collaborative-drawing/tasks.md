@@ -59,11 +59,11 @@ This implementation plan creates a real-time collaborative drawing application w
     - Add canvas state serialization and compression
     - _Requirements: 1.5, 3.3, 6.3_
 
-  - [ ]\* 3.4 Write property test for canvas state round-trip consistency
+  - [x] 3.4 Write property test for canvas state round-trip consistency
     - **Property 3: Canvas State Round-trip Consistency**
     - **Validates: Requirements 1.5, 3.5, 6.3**
 
-  - [ ]\* 3.5 Write unit tests for Room Service
+  - [x] 3.5 Write unit tests for Room Service
     - Test JWT token generation and validation
     - Test room capacity limits and error handling
     - Test GraphQL resolver edge cases
