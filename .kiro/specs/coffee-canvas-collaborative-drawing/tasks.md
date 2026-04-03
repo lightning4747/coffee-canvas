@@ -49,7 +49,7 @@ This implementation plan creates a real-time collaborative drawing application w
     - Create GraphQL resolvers for canvas history queries
     - _Requirements: 4.1, 4.2, 4.3_
 
-  - [ ]\* 3.2 Write property test for authentication enforcement
+  - [x] 3.2 Write property test for authentication enforcement
     - **Property 7: Authentication Enforcement**
     - **Validates: Requirements 4.5, 9.1**
 
