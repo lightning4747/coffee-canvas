@@ -42,7 +42,7 @@ This implementation plan creates a real-time collaborative drawing application w
     - Implement LRU eviction policies for memory management
     - _Requirements: 1.2, 8.4_
 
-- [ ] 3. Room Service Implementation
+- [x] 3. Room Service Implementation
   - [x] 3.1 Create Room Service with GraphQL API
     - Implement room creation, joining, and JWT token generation
     - Add user authentication and room capacity management
