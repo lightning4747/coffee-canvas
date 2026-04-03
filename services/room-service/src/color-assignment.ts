@@ -19,9 +19,12 @@ export function assignUserColor(
   roomId: string,
   existingColors: string[] = []
 ): string {
+  const normalizedExistingColors = new Set(
+    existingColors.map(color => color.toUpperCase())
+  );
   // Filter out colors already in use
   const availableColors = USER_COLORS.filter(
-    color => !existingColors.includes(color)
+    color => !normalizedExistingColors.has(color)
   );
 
   // If all colors are taken, use a random one (shouldn't happen with 12 colors and max 50 users)
