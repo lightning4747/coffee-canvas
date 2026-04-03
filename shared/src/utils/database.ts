@@ -137,6 +137,43 @@ export class DatabaseManager {
     };
   }
 
+  async getRoomForUpdateByCode(
+    code: string,
+    client: PoolClient
+  ): Promise<Room | null> {
+    const result = await client.query<{
+      id: string;
+      code: string;
+      name: string | null;
+      capacity: number;
+      created_at: Date;
+    }>(
+      `SELECT id, code, name, capacity, created_at
+       FROM rooms 
+       WHERE code = $1
+       FOR UPDATE`,
+      [code]
+    );
+
+    if (result.rows.length === 0) return null;
+
+    const row = result.rows[0];
+
+    const countResult = await client.query<{ count: string }>(
+      `SELECT COUNT(id) as count FROM users WHERE room_id = $1 AND is_active = true`,
+      [row.id]
+    );
+
+    return {
+      id: row.id,
+      code: row.code,
+      name: row.name ?? undefined,
+      capacity: row.capacity,
+      createdAt: row.created_at,
+      participantCount: parseInt(countResult.rows[0].count),
+    };
+  }
+
   // ============================================================================
   // USER OPERATIONS
   // ============================================================================
@@ -172,7 +209,10 @@ export class DatabaseManager {
     };
   }
 
-  async getActiveUsersInRoom(roomId: string): Promise<User[]> {
+  async getActiveUsersInRoom(
+    roomId: string,
+    client?: PoolClient
+  ): Promise<User[]> {
     const result = await this.query<{
       id: string;
       display_name: string;
@@ -184,7 +224,8 @@ export class DatabaseManager {
        FROM users 
        WHERE room_id = $1 AND is_active = true
        ORDER BY joined_at ASC`,
-      [roomId]
+      [roomId],
+      client
     );
 
     return result.rows.map(
