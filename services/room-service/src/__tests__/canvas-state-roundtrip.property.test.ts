@@ -1,6 +1,7 @@
 /* eslint-disable @typescript-eslint/no-var-requires */
 import * as fc from 'fast-check';
 import { StrokeEvent } from '../../../../shared/src/types/index.js';
+import { DatabaseManager } from '../../../../shared/src/utils/database.js';
 import { CanvasHistoryManager } from '../canvas-history';
 
 /**
@@ -17,7 +18,7 @@ describe('Canvas State Round-trip Consistency Property Tests', () => {
   // Mock DatabaseManager for testing
   const mockDb = {
     getStrokeEventsInChunksWithPagination: jest.fn(),
-  } as any;
+  } as unknown as jest.Mocked<DatabaseManager>;
 
   beforeEach(() => {
     canvasHistoryManager = new CanvasHistoryManager(mockDb);
@@ -269,11 +270,11 @@ describe('Canvas State Round-trip Consistency Property Tests', () => {
 
             // Verify stroke data preservation
             expect(Array.isArray(serialized.strokes)).toBe(true);
-            expect((serialized.strokes as any[]).length).toBe(
+            expect(serialized.strokes.length).toBe(
               originalCanvasState.strokes.size
             );
 
-            for (const serializedStroke of serialized.strokes as any[]) {
+            for (const serializedStroke of serialized.strokes) {
               const originalStroke = originalCanvasState.strokes.get(
                 serializedStroke.strokeId
               );
@@ -313,7 +314,7 @@ describe('Canvas State Round-trip Consistency Property Tests', () => {
 
             // Verify stain data preservation
             expect(Array.isArray(serialized.stains)).toBe(true);
-            expect((serialized.stains as any[]).length).toBe(
+            expect(serialized.stains.length).toBe(
               originalCanvasState.stains.length
             );
           }
@@ -626,12 +627,12 @@ describe('Canvas State Round-trip Consistency Property Tests', () => {
             expect(typeof serialized.lastUpdated).toBe('string');
 
             // Verify stroke count matches
-            expect((serialized.strokes as any[]).length).toBe(
+            expect(serialized.strokes.length).toBe(
               originalCanvasState.strokes.size
             );
 
             // Verify each serialized stroke contains essential data for reconstruction
-            for (const serializedStroke of serialized.strokes as any[]) {
+            for (const serializedStroke of serialized.strokes) {
               expect(typeof serializedStroke.strokeId).toBe('string');
               expect(typeof serializedStroke.userId).toBe('string');
               expect(typeof serializedStroke.tool).toBe('string');
