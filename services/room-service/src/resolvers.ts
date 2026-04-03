@@ -179,7 +179,7 @@ export const resolvers = {
       { db }: Context
     ): Promise<AuthPayload> {
       // Validate input
-      const capacity = input.capacity || 10;
+      const capacity = input.capacity ?? 10;
       if (capacity < 1 || capacity > 50) {
         throw new Error('Room capacity must be between 1 and 50');
       }
