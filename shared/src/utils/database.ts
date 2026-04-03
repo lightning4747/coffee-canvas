@@ -1,7 +1,7 @@
 // Database connection and query utilities for Coffee & Canvas
 
 import { Pool, PoolClient, QueryResult, QueryResultRow } from 'pg';
-import { Room, StrokeEvent, User, StrokeEventData } from '../types/index.js';
+import { Room, StrokeEvent, StrokeEventData, User } from '../types/index.js';
 
 interface StrokeEventRow extends QueryResultRow {
   id: string;
@@ -268,6 +268,40 @@ export class DatabaseManager {
     );
 
     return result.rows.map(this.mapStrokeRow);
+  }
+
+  async getStrokeEventsInChunksWithPagination(
+    roomId: string,
+    chunkKeys: string[],
+    cursor?: Date,
+    limit: number = 100
+  ): Promise<{ events: StrokeEvent[]; hasMore: boolean }> {
+    if (chunkKeys.length === 0) return { events: [], hasMore: false };
+
+    const chunkPlaceholders = chunkKeys.map((_, i) => `$${i + 2}`).join(', ');
+    let query = `
+      SELECT id, room_id, stroke_id, user_id, event_type, chunk_key, data, created_at
+      FROM stroke_events
+      WHERE room_id = $1 AND chunk_key IN (${chunkPlaceholders})
+    `;
+
+    const params: any[] = [roomId, ...chunkKeys];
+
+    if (cursor) {
+      query += ` AND created_at > $${params.length + 1}`;
+      params.push(cursor);
+    }
+
+    // Query for limit + 1 to check if there are more results
+    query += ` ORDER BY created_at ASC LIMIT $${params.length + 1}`;
+    params.push(limit + 1);
+
+    const result = await this.query<StrokeEventRow>(query, params);
+
+    const hasMore = result.rows.length > limit;
+    const events = result.rows.slice(0, limit).map(this.mapStrokeRow);
+
+    return { events, hasMore };
   }
 
   async getStrokeEventsInViewport(
