@@ -88,8 +88,9 @@ async function startServer() {
       try {
         const isHealthy = await db.healthCheck();
         const stats = await db.getStats();
+        const statusCode = isHealthy ? 200 : 503;
 
-        res.json({
+        res.status(statusCode).json({
           status: isHealthy ? 'healthy' : 'unhealthy',
           timestamp: new Date().toISOString(),
           service: 'room-service',
