@@ -8,11 +8,15 @@ import {
 import { DatabaseManager } from '../../../shared/src/utils/database.js';
 import { generateRoomCode } from '../../../shared/src/utils/index.js';
 import { extractJWTFromRequest, generateJWT, validateJWT } from './auth.js';
+import { CanvasHistoryManager } from './canvas-history.js';
 import { assignUserColor } from './color-assignment.js';
 
 interface Context {
   db: DatabaseManager;
-  req: any;
+  canvasHistoryManager: CanvasHistoryManager;
+  req: {
+    headers: Record<string, string | string[] | undefined>;
+  };
 }
 
 interface CreateRoomInput {
@@ -41,9 +45,9 @@ interface CanvasHistoryPage {
 export const resolvers = {
   Query: {
     async getCanvasHistory(
-      _: any,
+      _: unknown,
       { input }: { input: CanvasHistoryInput },
-      { db, req }: Context
+      { canvasHistoryManager, req }: Context
     ): Promise<CanvasHistoryPage> {
       // Authenticate request
       const token = extractJWTFromRequest(req);
@@ -71,35 +75,23 @@ export const resolvers = {
       const limit = Math.min(input.limit || 100, 500); // Cap at 500 events
 
       try {
-        // Get stroke events for the specified chunks
-        const events = await db.getStrokeEventsInChunks(
+        // Use the canvas history manager for efficient retrieval and reconstruction
+        const result = await canvasHistoryManager.getCanvasHistory(
           input.roomId,
-          input.chunks
+          input.chunks,
+          input.cursor,
+          limit
         );
 
-        // Apply cursor-based pagination if provided
-        let filteredEvents = events;
-        if (input.cursor) {
-          const cursorDate = new Date(input.cursor);
-          filteredEvents = events.filter(
-            (event: StrokeEvent) => event.createdAt > cursorDate
-          );
-        }
-
-        // Apply limit and determine if there are more results
-        const hasMore = filteredEvents.length > limit;
-        const resultEvents = filteredEvents.slice(0, limit);
-
-        // Generate next cursor if there are more results
-        const cursor =
-          hasMore && resultEvents.length > 0
-            ? resultEvents[resultEvents.length - 1].createdAt.toISOString()
-            : undefined;
+        // Compress events for efficient network transfer
+        const compressedEvents = canvasHistoryManager.compressCanvasState(
+          result.events
+        );
 
         return {
-          events: resultEvents,
-          cursor,
-          hasMore,
+          events: compressedEvents,
+          cursor: result.cursor,
+          hasMore: result.hasMore,
         };
       } catch (error) {
         console.error('Error fetching canvas history:', error);
@@ -108,7 +100,7 @@ export const resolvers = {
     },
 
     async getRoomInfo(
-      _: any,
+      _: unknown,
       { roomId }: { roomId: string },
       { db, req }: Context
     ): Promise<Room | null> {
@@ -166,7 +158,11 @@ export const resolvers = {
       }
     },
 
-    async healthCheck(_: any, __: any, { db }: Context): Promise<boolean> {
+    async healthCheck(
+      _: unknown,
+      __: unknown,
+      { db }: Context
+    ): Promise<boolean> {
       try {
         return await db.healthCheck();
       } catch (error) {
@@ -178,7 +174,7 @@ export const resolvers = {
 
   Mutation: {
     async createRoom(
-      _: any,
+      _: unknown,
       { input }: { input: CreateRoomInput },
       { db }: Context
     ): Promise<AuthPayload> {
@@ -234,7 +230,7 @@ export const resolvers = {
     },
 
     async joinRoom(
-      _: any,
+      _: unknown,
       { input }: { input: JoinRoomInput },
       { db }: Context
     ): Promise<AuthPayload> {

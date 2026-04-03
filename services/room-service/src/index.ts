@@ -4,6 +4,7 @@ import express from 'express';
 import helmet from 'helmet';
 import { RateLimiterMemory } from 'rate-limiter-flexible';
 import { DatabaseManager } from '../../../shared/src/utils/database.js';
+import { CanvasHistoryManager } from './canvas-history.js';
 import { resolvers } from './resolvers.js';
 import { typeDefs } from './schema.js';
 
@@ -57,12 +58,17 @@ async function startServer() {
     }
     console.log('Database connection established');
 
+    // Initialize canvas history manager
+    const canvasHistoryManager = new CanvasHistoryManager(db);
+    console.log('Canvas history manager initialized');
+
     // Create Apollo Server
     const server = new ApolloServer({
       typeDefs,
       resolvers,
       context: ({ req }) => ({
         db,
+        canvasHistoryManager,
         req,
       }),
       introspection: process.env.NODE_ENV !== 'production',
@@ -71,7 +77,7 @@ async function startServer() {
 
     await server.start();
     server.applyMiddleware({
-      app: app as any,
+      app: app as any, // Type assertion to handle Express version compatibility
       path: '/graphql',
       cors: false, // We handle CORS above
     });
