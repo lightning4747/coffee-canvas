@@ -22,3 +22,15 @@ message:
       ],
       "simulation_steps": 10
     }
+scripts:
+  - type: afterResponse
+    language: text/javascript
+    code: |-
+      pm.test("Successful gRPC status", () => {
+        pm.expect(pm.response.code).to.equal(0);
+      });
+      pm.test("Response body includes expected fields", () => {
+        const response = pm.response.toJSON();
+        pm.expect(response).to.have.property('stain_polygons');
+        pm.expect(response).to.have.property('stroke_mutations');
+      });
