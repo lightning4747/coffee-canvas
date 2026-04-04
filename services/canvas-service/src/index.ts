@@ -33,6 +33,7 @@ interface ServerToClientEvents {
   stroke_segment: (payload: StrokeSegmentPayload) => void;
   stroke_end: (payload: StrokeEndPayload) => void;
   stain_result: (payload: StainResult) => void;
+  error: (payload: { message: string }) => void;
 }
 
 interface ClientToServerEvents {
@@ -290,7 +291,20 @@ export async function initializeCanvasService(
           strokeDataList
         );
 
-        // 3. Broadcast stain result to room participants
+        // 3. Cache stain result in Redis for history replay
+        // Requirement 1.5, 6.2: Ensure all participants (including future ones) see the result
+        await redisClient.lPush(
+          `canvas:room:${roomId}:stains`,
+          JSON.stringify({
+            ...result,
+            timestamp: Date.now(),
+            userId,
+          })
+        );
+        // Set a generous TTL or ensure permanent storage in 5.6
+        await redisClient.expire(`canvas:room:${roomId}:stains`, 3600); // 1 hour buffer until persistence
+
+        // 4. Broadcast stain result to room participants
         io.to(roomId).emit('stain_result', result);
 
         console.log(
@@ -298,6 +312,9 @@ export async function initializeCanvasService(
         );
       } catch (error) {
         console.error(`Error in coffee_pour for user ${userId}:`, error);
+        socket.emit('error', {
+          message: 'Failed to compute coffee pour simulation',
+        });
       }
     });
 

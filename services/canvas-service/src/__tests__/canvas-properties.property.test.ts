@@ -37,6 +37,14 @@ jest.mock('../auth', () => ({
   }),
 }));
 
+interface MockSocket extends EventEmitter {
+  id: string;
+  handshake: { auth: { token: string }; headers: any };
+  data: { user: any };
+  join: jest.Mock;
+  to: jest.Mock;
+}
+
 // Helper to create a mock socket
 function createMockSocket(
   id: string,
@@ -44,8 +52,8 @@ function createMockSocket(
   roomId: string,
   displayName: string,
   color: string
-) {
-  const socket = new EventEmitter() as any;
+): { socket: MockSocket; broadcastEmit: jest.Mock } {
+  const socket = new EventEmitter() as unknown as MockSocket;
   socket.id = id;
   socket.handshake = {
     auth: { token: `${userId}:${roomId}:${displayName}:${color}` },
@@ -64,12 +72,12 @@ function createMockSocket(
 }
 
 describe('Canvas Service Property Tests', () => {
-  let io: any;
+  let io: EventEmitter;
 
   beforeEach(async () => {
     const mockHttpServer = new EventEmitter();
     const result = await initializeCanvasService(mockHttpServer as any, 'mock');
-    io = result.io;
+    io = result.io as unknown as EventEmitter;
   });
 
   afterEach(() => {
@@ -107,8 +115,8 @@ describe('Canvas Service Property Tests', () => {
           // In index.ts, handlers are registered on 'connection'
           // Manually trigger the connection handler to register socket listeners
           const connectionListeners = io.listeners('connection');
-          connectionListeners.forEach((listener: any) =>
-            (listener as any)(socket)
+          connectionListeners.forEach(listener =>
+            (listener as (s: any) => void)(socket)
           );
 
           // Test stroke_begin latency and broadcast

@@ -21,6 +21,7 @@ const mockRedisClient = {
   sMembers: jest.fn().mockResolvedValue(['stroke-1']),
   sRem: jest.fn().mockResolvedValue(1),
   rPush: jest.fn().mockResolvedValue(1),
+  lPush: jest.fn().mockResolvedValue(1),
   lRange: jest.fn().mockResolvedValue([JSON.stringify({ x: 10, y: 10 })]),
   expire: jest.fn().mockResolvedValue(true),
 };
@@ -28,6 +29,14 @@ const mockRedisClient = {
 jest.mock('redis', () => ({
   createClient: jest.fn(() => mockRedisClient),
 }));
+
+interface MockSocket extends EventEmitter {
+  id: string;
+  handshake: { auth: { token: string }; headers: Record<string, any> };
+  data: { user: { userId: string; roomId: string; displayName: string } };
+  join: jest.Mock;
+  to: jest.Mock;
+}
 
 // Mock Physics Client
 jest.mock('../physics-client', () => ({
@@ -59,12 +68,15 @@ jest.mock('../auth', () => ({
 }));
 
 describe('Physics Integration Verification', () => {
-  let io: any;
+  let io: EventEmitter & { to: jest.Mock };
 
   beforeEach(async () => {
     const mockHttpServer = new EventEmitter();
     const result = await initializeCanvasService(mockHttpServer as any, 'mock');
-    io = result.io;
+    io = result.io as any;
+
+    // Mock io.to(roomId).emit
+    io.to = jest.fn().mockReturnValue({ emit: jest.fn() });
   });
 
   afterEach(() => {
@@ -76,7 +88,7 @@ describe('Physics Integration Verification', () => {
     const userId = 'user-1';
 
     // Mock socket setup
-    const socket = new EventEmitter() as any;
+    const socket = new EventEmitter() as MockSocket;
     socket.id = 'socket-1';
     socket.handshake = { auth: { token: 'valid-token' }, headers: {} };
     socket.data = { user: { userId, roomId, displayName: 'Test User' } };
@@ -125,10 +137,17 @@ describe('Physics Integration Verification', () => {
       ])
     );
 
-    // 3. Should have broadcast stain_result to the room
-    // Note: in index.ts we use io.to(roomId).emit(...) which uses the server's broadcast logic
-    // We need to check if the server's broadcast was triggered.
-    // In our simplified test setup, we can check if io.to was called if we mock it,
-    // or check if the broadcast is emitted to the room.
+    // 3. Should have cached the result in Redis
+    expect(mockRedisClient.lPush).toHaveBeenCalledWith(
+      `canvas:room:${roomId}:stains`,
+      expect.stringContaining('"pourId":"pour-123"')
+    );
+    expect(mockRedisClient.expire).toHaveBeenCalledWith(
+      `canvas:room:${roomId}:stains`,
+      3600
+    );
+
+    // 4. Should have broadcast stain_result to the room
+    expect(io.to).toHaveBeenCalledWith(roomId);
   });
 });
