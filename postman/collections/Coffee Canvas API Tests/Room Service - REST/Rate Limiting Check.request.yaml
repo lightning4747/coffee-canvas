@@ -1,0 +1,32 @@
+$kind: http-request
+name: 'Rate Limiting Check'
+method: GET
+url: 'http://localhost:3002/health'
+order: 2000
+scripts:
+  - type: afterResponse
+    language: text/javascript
+    code: |-
+      const iterations = 6;
+      let completed = 0;
+      let counts = { 200: 0, 429: 0 };
+      const endpoint = pm.request.url.toString();
+
+      pm.test("Status of initial request is within range", () => {
+          pm.expect(pm.response.code).to.be.oneOf([200, 429]);
+      });
+
+      pm.test("Deterministic Rate Limiting Check", (done) => {
+          for (let i = 0; i < iterations; i++) {
+              pm.sendRequest(endpoint, (err, res) => {
+                  completed++;
+                  counts[res.code] = (counts[res.code] || 0) + 1;
+                  
+                  if (completed === iterations) {
+                      pm.expect(counts[200]).to.be.at.least(1, "Expected at least one 200 response");
+                      pm.expect(counts[429]).to.be.at.least(1, "Expected at least one 429 (throttled) response");
+                      done();
+                  }
+              });
+          }
+      });

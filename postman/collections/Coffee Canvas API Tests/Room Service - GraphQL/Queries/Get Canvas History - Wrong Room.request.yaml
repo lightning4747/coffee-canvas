@@ -1,0 +1,23 @@
+$kind: http-request
+name: 'Get Canvas History – Wrong Room'
+method: POST
+url: 'http://localhost:3002/graphql'
+order: 6000
+headers:
+  - key: Content-Type
+    value: application/json
+  - key: Authorization
+    value: 'Bearer {{auth_token}}'
+body:
+  type: json
+  content: |-
+    {"query": "query GetCanvasHistory($input: CanvasHistoryInput!) { getCanvasHistory(input: $input) { events { id } hasMore } }", "variables": { "input": { "roomId": "00000000-0000-0000-0000-000000000000", "chunks": ["chunk-1"] } }}
+scripts:
+  - type: afterResponse
+    language: text/javascript
+    code: |-
+      pm.test("Status 200", () => pm.response.to.have.status(200));
+      pm.test("Returns access denied error", () => {
+        const json = pm.response.json();
+        pm.expect(json.errors).to.be.an('array').and.not.empty;
+      });

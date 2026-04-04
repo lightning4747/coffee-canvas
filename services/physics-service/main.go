@@ -6,7 +6,10 @@ import (
 	"net"
 	"os"
 
+	pb "coffee-canvas/physics-service/proto"
+
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/reflection"
 )
 
 func main() {
@@ -21,12 +24,13 @@ func main() {
 	}
 
 	s := grpc.NewServer()
-	
-	// TODO: Register Physics Service implementation
-	// This will be implemented in later tasks
+	pb.RegisterCoffeePhysicsServer(s, &PhysicsServer{})
+
+	// Enable gRPC server reflection for tooling (e.g. grpcurl)
+	reflection.Register(s)
 
 	fmt.Printf("Physics Service listening on port %s\n", port)
-	
+
 	if err := s.Serve(lis); err != nil {
 		log.Fatalf("Failed to serve: %v", err)
 	}

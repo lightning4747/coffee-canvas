@@ -1,0 +1,21 @@
+$kind: http-request
+name: 'Join Room – Display Name Too Long'
+method: POST
+url: 'http://localhost:3002/graphql'
+order: 7000
+headers:
+  - key: Content-Type
+    value: application/json
+body:
+  type: json
+  content: |-
+    {"query": "mutation JoinRoom($input: JoinRoomInput!) { joinRoom(input: $input) { token } }", "variables": { "input": { "code": "{{room_code}}", "displayName": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA" } }}
+scripts:
+  - type: afterResponse
+    language: text/javascript
+    code: |-
+      pm.test("Status 200", () => pm.response.to.have.status(200));
+      pm.test("Returns error for display name too long", () => {
+        const json = pm.response.json();
+        pm.expect(json.errors).to.be.an('array').and.not.empty;
+      });

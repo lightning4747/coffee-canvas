@@ -12,7 +12,8 @@
     "sourceMap": true,
     "resolveJsonModule": true,
     "incremental": true,
-    "composite": true
+    "composite": true,
+    "downlevelIteration": true
   },
   "references": [
     { "path": "./shared" },

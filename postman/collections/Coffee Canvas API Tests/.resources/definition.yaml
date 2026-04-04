@@ -1,0 +1,9 @@
+$kind: collection
+name: Coffee Canvas API Tests
+variables:
+  - key: auth_token
+    value: ''
+  - key: room_id
+    value: ''
+  - key: room_code
+    value: ''

@@ -3,3 +3,7 @@
 
 # Run tests before pushing
 npm run test:ci
+
+# Run Go tests in physics-service
+cd services/physics-service
+go test ./... -v

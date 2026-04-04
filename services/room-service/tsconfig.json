@@ -5,6 +5,8 @@
     "rootDir": "./src",
     "baseUrl": "./src",
     "composite": true,
+    "target": "ES2020", // Explicitly set for this service
+    "downlevelIteration": true, // Specifically fixes the Map/Set iteration error
     "paths": {
       "@shared/*": ["../../shared/src/*"]
     }

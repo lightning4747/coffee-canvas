@@ -1,0 +1,28 @@
+$kind: grpc-request
+name: 'ComputeSpread – Zero Intensity'
+url: 'localhost:50051'
+order: 2000
+methodPath: '/CoffeePhysics/ComputeSpread'
+message:
+  content: |-
+    {
+      "room_id": "room-123",
+      "pour_id": "pour-zero",
+      "origin": { "x": 50.0, "y": 50.0 },
+      "intensity": 0.0,
+      "viscosity": 0.5,
+      "nearby_strokes": [],
+      "simulation_steps": 5
+    }
+scripts:
+  - type: afterResponse
+    language: text/javascript
+    code: |-
+      pm.test("Successful gRPC status", () => {
+        pm.expect(pm.response.code).to.equal(0);
+      });
+      pm.test("Zero intensity results in no spread", () => {
+        const response = pm.response.toJSON();
+        pm.expect(response.stain_polygons).to.be.empty;
+        pm.expect(response.stroke_mutations).to.be.empty;
+      });

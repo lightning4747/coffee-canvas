@@ -1,0 +1,28 @@
+$kind: http-request
+name: 'Get Canvas History (Authenticated)'
+method: POST
+url: 'http://localhost:3002/graphql'
+order: 4000
+headers:
+  - key: Content-Type
+    value: application/json
+  - key: Authorization
+    value: 'Bearer {{auth_token}}'
+body:
+  type: json
+  content: |-
+    {"query": "query GetCanvasHistory($input: CanvasHistoryInput!) { getCanvasHistory(input: $input) { events { id roomId strokeId userId eventType chunkKey createdAt } cursor hasMore } }", "variables": { "input": { "roomId": "{{room_id}}", "chunks": ["chunk-1"], "limit": 50 } }}
+scripts:
+  - type: afterResponse
+    language: text/javascript
+    code: |-
+      pm.test("Status 200", () => pm.response.to.have.status(200));
+      pm.test("No GraphQL errors", () => {
+        const json = pm.response.json();
+        pm.expect(json.errors).to.be.undefined;
+      });
+      pm.test("Returns canvas history page shape", () => {
+        const page = pm.response.json().data.getCanvasHistory;
+        pm.expect(page).to.have.property('events').that.is.an('array');
+        pm.expect(page).to.have.property('hasMore').that.is.a('boolean');
+      });

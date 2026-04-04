@@ -1,0 +1,16 @@
+$kind: grpc-request
+name: 'ComputeSpread – Max Simulation Steps'
+url: 'localhost:50051'
+order: 4000
+methodPath: '/CoffeePhysics/ComputeSpread'
+message:
+  content: |-
+    {
+      "room_id": "room-789",
+      "pour_id": "pour-max",
+      "origin": { "x": 0.0, "y": 0.0 },
+      "intensity": 1.0,
+      "viscosity": 0.1,
+      "nearby_strokes": [],
+      "simulation_steps": 1000
+    }

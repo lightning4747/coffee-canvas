@@ -1,0 +1,23 @@
+$kind: http-request
+name: 'Health Check (REST)'
+method: GET
+url: 'http://localhost:3002/health'
+order: 1000
+scripts:
+  - type: afterResponse
+    language: text/javascript
+    code: |-
+      pm.test("Status 200 or 503", () => {
+        pm.expect(pm.response.code).to.be.oneOf([200, 503]);
+      });
+      pm.test("Response has status field", () => {
+        const json = pm.response.json();
+        pm.expect(json).to.have.property('status');
+        pm.expect(json).to.have.property('service', 'room-service');
+        pm.expect(json).to.have.property('timestamp');
+      });
+      pm.test("Healthy service returns 200", () => {
+        if (pm.response.code === 200) {
+          pm.expect(pm.response.json().status).to.eql('healthy');
+        }
+      });

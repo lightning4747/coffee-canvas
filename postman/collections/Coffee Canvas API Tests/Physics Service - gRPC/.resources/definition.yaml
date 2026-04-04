@@ -1,0 +1,5 @@
+$kind: collection
+name: 'Physics Service – gRPC'
+description: |-
+  The Physics Service runs as a gRPC server on port 50051. Use Postman's gRPC request type to test it. The service definition is in shared/proto/physics.proto. The single RPC is CoffeePhysics.ComputeSpread.
+order: 3000

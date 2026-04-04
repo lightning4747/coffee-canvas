@@ -1,0 +1,34 @@
+$kind: http-request
+name: 'Create Room (Happy Path)'
+method: POST
+url: 'http://localhost:3002/graphql'
+order: 1000
+headers:
+  - key: Content-Type
+    value: application/json
+body:
+  type: json
+  content: |-
+    {"query": "mutation CreateRoom($input: CreateRoomInput!) { createRoom(input: $input) { token user { id displayName color joinedAt } room { id code name capacity createdAt participantCount } } }", "variables": { "input": { "name": "My Coffee Room", "capacity": 5 } }}
+scripts:
+  - type: afterResponse
+    language: text/javascript
+    code: |-
+      pm.test("Status 200", () => pm.response.to.have.status(200));
+      pm.test("No GraphQL errors", () => {
+        const json = pm.response.json();
+        pm.expect(json.errors).to.be.undefined;
+      });
+      pm.test("Returns token", () => {
+        const json = pm.response.json();
+        pm.expect(json.data.createRoom.token).to.be.a('string').and.not.empty;
+        pm.collectionVariables.set("auth_token", json.data.createRoom.token);
+        pm.collectionVariables.set("room_id", json.data.createRoom.room.id);
+        pm.collectionVariables.set("room_code", json.data.createRoom.room.code);
+      });
+      pm.test("Room has correct capacity", () => {
+        pm.expect(pm.response.json().data.createRoom.room.capacity).to.eql(5);
+      });
+      pm.test("Participant count is 1", () => {
+        pm.expect(pm.response.json().data.createRoom.room.participantCount).to.eql(1);
+      });

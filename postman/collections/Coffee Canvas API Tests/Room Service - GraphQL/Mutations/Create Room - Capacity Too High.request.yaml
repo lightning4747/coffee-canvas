@@ -1,0 +1,21 @@
+$kind: http-request
+name: 'Create Room – Capacity Too High'
+method: POST
+url: 'http://localhost:3002/graphql'
+order: 3000
+headers:
+  - key: Content-Type
+    value: application/json
+body:
+  type: json
+  content: |-
+    {"query": "mutation CreateRoom($input: CreateRoomInput!) { createRoom(input: $input) { token room { id } } }", "variables": { "input": { "capacity": 51 } }}
+scripts:
+  - type: afterResponse
+    language: text/javascript
+    code: |-
+      pm.test("Status 200", () => pm.response.to.have.status(200));
+      pm.test("Returns GraphQL error for capacity > 50", () => {
+        const json = pm.response.json();
+        pm.expect(json.errors).to.be.an('array').and.not.empty;
+      });

@@ -1,0 +1,36 @@
+$kind: grpc-request
+name: 'ComputeSpread – Happy Path'
+url: 'localhost:50051'
+order: 1000
+methodPath: '/CoffeePhysics/ComputeSpread'
+message:
+  content: |-
+    {
+      "room_id": "room-123",
+      "pour_id": "pour-abc",
+      "origin": { "x": 100.0, "y": 200.0 },
+      "intensity": 0.8,
+      "viscosity": 0.5,
+      "nearby_strokes": [
+        {
+          "stroke_id": "stroke-1",
+          "color": "#6B3A2A",
+          "width": 3.0,
+          "points": [{"x": 90.0, "y": 190.0}, {"x": 110.0, "y": 210.0}],
+          "opacity": 0.9
+        }
+      ],
+      "simulation_steps": 10
+    }
+scripts:
+  - type: afterResponse
+    language: text/javascript
+    code: |-
+      pm.test("Successful gRPC status", () => {
+        pm.expect(pm.response.code).to.equal(0);
+      });
+      pm.test("Response body includes expected fields", () => {
+        const response = pm.response.toJSON();
+        pm.expect(response).to.have.property('stain_polygons');
+        pm.expect(response).to.have.property('stroke_mutations');
+      });
