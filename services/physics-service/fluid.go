@@ -25,7 +25,7 @@ type StrokeCell struct {
 // SimGrid is the 2D simulation grid anchored to world coordinates.
 type SimGrid struct {
 	Cells          [][]FluidCell
-	StrokeCells    map[[2]int]StrokeCell
+	StrokeCells    map[[2]int][]StrokeCell
 	SizeX, SizeY   int
 	OriginX        float64
 	OriginY        float64
@@ -54,7 +54,7 @@ func NewSimGrid(origin *pb.Point2D, intensity float64) *SimGrid {
 
 	return &SimGrid{
 		Cells:       cells,
-		StrokeCells: make(map[[2]int]StrokeCell),
+		StrokeCells: make(map[[2]int][]StrokeCell),
 		SizeX:       size,
 		SizeY:       size,
 		OriginX:     float64(origin.X) - float64(radius)*cellSize,
@@ -84,11 +84,11 @@ func (g *SimGrid) markStrokes(strokes []*pb.StrokeSnapshot) {
 				continue
 			}
 			key := [2]int{cx, cy}
-			if _, exists := g.StrokeCells[key]; !exists {
-				g.StrokeCells[key] = StrokeCell{
+			if !g.hasStroke(key, stroke.StrokeId) {
+				g.StrokeCells[key] = append(g.StrokeCells[key], StrokeCell{
 					StrokeID:       stroke.StrokeId,
 					AbsorptionRate: rate,
-				}
+				})
 			}
 			// Also mark intermediate cells between consecutive points
 			if i > 0 {
@@ -114,8 +114,8 @@ func (g *SimGrid) rasterizeLine(x0, y0, x1, y1 float64, strokeID string, rate fl
 			continue
 		}
 		key := [2]int{cx, cy}
-		if _, exists := g.StrokeCells[key]; !exists {
-			g.StrokeCells[key] = StrokeCell{StrokeID: strokeID, AbsorptionRate: rate}
+		if !g.hasStroke(key, strokeID) {
+			g.StrokeCells[key] = append(g.StrokeCells[key], StrokeCell{StrokeID: strokeID, AbsorptionRate: rate})
 		}
 	}
 }
@@ -199,14 +199,23 @@ func RunSimulation(req *pb.PourRequest) *SimResult {
 				}
 
 				key := [2]int{x, y}
-				if sc, occupied := grid.StrokeCells[key]; occupied {
-					// Absorbed by stroke
-					absorb := sc.AbsorptionRate * cell.Volume
-					absorb = math.Min(absorb, cell.Volume)
+				if scs, occupied := grid.StrokeCells[key]; occupied && len(scs) > 0 {
+					// Accumulate absorption from all overlapping strokes
+					totalRate := 0.0
+					for _, sc := range scs {
+						totalRate += sc.AbsorptionRate
+					}
+
+					absorb := math.Min(totalRate*cell.Volume, cell.Volume)
 					next[x][y].Volume -= absorb
 					next[x][y].Absorbed += absorb
 					grid.TotalAbsorbed += absorb
-					mutated[sc.StrokeID] += absorb
+
+					// Distribute absorbed volume among strokes proportionally to their absorption rates
+					for _, sc := range scs {
+						strokeAbsorb := absorb * (sc.AbsorptionRate / totalRate)
+						mutated[sc.StrokeID] += strokeAbsorb
+					}
 					continue
 				}
 
@@ -261,6 +270,15 @@ func RunSimulation(req *pb.PourRequest) *SimResult {
 		MutatedStrokes: mutated,
 		InitialVolume:  initialVolume,
 	}
+}
+
+func (g *SimGrid) hasStroke(key [2]int, strokeID string) bool {
+	for _, sc := range g.StrokeCells[key] {
+		if sc.StrokeID == strokeID {
+			return true
+		}
+	}
+	return false
 }
 
 func clampInt(v, min, max int) int {
