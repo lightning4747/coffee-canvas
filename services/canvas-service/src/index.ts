@@ -10,12 +10,18 @@ import {
   StrokeEndPayload,
   CoffeePourPayload,
   StainResult,
+  DatabaseManager,
+  calculateChunkKey,
+  StrokeEvent,
 } from '@coffee-canvas/shared';
 import { validateJWT } from './auth';
 import { physicsClient } from './physics-client';
 
 const PORT = process.env.PORT || 3001;
 const REDIS_URL = process.env.REDIS_URL || 'redis://localhost:6379';
+const DATABASE_URL =
+  process.env.DATABASE_URL ||
+  'postgres://postgres:postgres@localhost:5432/coffee_canvas';
 
 interface ServerToClientEvents {
   'user-joined': (payload: {
@@ -69,8 +75,12 @@ export async function initializeCanvasService(
 ) {
   // Redis client for caching active strokes
   const redisClient = createClient({ url: redisUrl });
-
   redisClient.on('error', err => console.error('Redis Client Error', err));
+
+  // Database manager for persistent storage
+  const dbManager = new DatabaseManager(
+    process.env.DATABASE_URL || DATABASE_URL
+  );
 
   try {
     await redisClient.connect();
@@ -213,7 +223,6 @@ export async function initializeCanvasService(
         if (payload.roomId !== roomId) return;
 
         const strokeId = payload.strokeId;
-        console.log(`Stroke end: ${strokeId} by ${userId}`);
 
         // Mark stroke as complete in Redis
         await redisClient.hSet(
@@ -221,6 +230,10 @@ export async function initializeCanvasService(
           'status',
           'completed'
         );
+
+        // Check if stroke exists
+        const exists = await redisClient.exists(`canvas:stroke:${strokeId}`);
+        if (!exists) return;
 
         // Remove from active strokes set
         await redisClient.sRem(
@@ -231,6 +244,66 @@ export async function initializeCanvasService(
         // Finalize expire time
         await redisClient.expire(`canvas:stroke:${strokeId}`, 300); // Keep for 5 mins for late joiners
         await redisClient.expire(`canvas:stroke:${strokeId}:points`, 300);
+
+        // --- ASYNCHRONOUS PERSISTENCE (Task 5.6) ---
+        // We do this after the broadcast to maintain zero-latency for users
+        setImmediate(async () => {
+          try {
+            // 1. Fetch metadata and all points
+            const [strokeMeta, pointsJson] = await Promise.all([
+              redisClient.hGetAll(`canvas:stroke:${strokeId}`),
+              redisClient.lRange(`canvas:stroke:${strokeId}:points`, 0, -1),
+            ]);
+
+            if (!strokeMeta.roomId || pointsJson.length === 0) return;
+
+            const points = pointsJson.map(p => JSON.parse(p));
+            const firstPoint = points[0];
+            const chunkKey = calculateChunkKey(firstPoint);
+
+            // 2. Prepare batch events
+            const events: Omit<StrokeEvent, 'id' | 'createdAt'>[] = [];
+
+            // Begin event
+            events.push({
+              roomId,
+              strokeId,
+              userId,
+              eventType: 'begin',
+              chunkKey,
+              data: {
+                tool: strokeMeta.tool,
+                color: strokeMeta.color,
+                width: parseFloat(strokeMeta.width),
+              },
+            });
+
+            // Segment event (contains all points for the history record)
+            events.push({
+              roomId,
+              strokeId,
+              userId,
+              eventType: 'segment',
+              chunkKey,
+              data: { points },
+            });
+
+            // End event
+            events.push({
+              roomId,
+              strokeId,
+              userId,
+              eventType: 'end',
+              chunkKey,
+              data: {},
+            });
+
+            // 3. Batch insert to PostgreSQL
+            await dbManager.batchInsertStrokeEvents(events);
+          } catch (err) {
+            console.error(`Failed to persist stroke ${strokeId}:`, err);
+          }
+        });
 
         // Broadcast to others
         socket.to(roomId).emit('stroke_end', payload);
@@ -245,14 +318,11 @@ export async function initializeCanvasService(
         if (payload.roomId !== roomId) return;
 
         const { pourId, origin, intensity } = payload;
-        console.log(
-          `Coffee pour triggered: ${pourId} by ${userId} in ${roomId}`
-        );
 
         // 1. Fetch nearby/active strokes for simulation context
-        const activeStrokeIds = await redisClient.sMembers(
+        const activeStrokeIds = (await redisClient.sMembers(
           `canvas:room:${roomId}:active_strokes`
-        );
+        )) as string[];
 
         const strokeDataList: PhysicsStrokeContext[] = [];
         for (const strokeId of activeStrokeIds) {
@@ -306,6 +376,29 @@ export async function initializeCanvasService(
 
         // 4. Broadcast stain result to room participants
         io.to(roomId).emit('stain_result', result);
+
+        // --- ASYNCHRONOUS PERSISTENCE (Task 5.6) ---
+        setImmediate(async () => {
+          try {
+            const chunkKey = calculateChunkKey(origin);
+            await dbManager.insertStrokeEvent({
+              roomId,
+              strokeId: pourId, // Use pourId as strokeId for stains
+              userId,
+              eventType: 'stain',
+              chunkKey,
+              data: {
+                stainPolygons: result.stainPolygons,
+                strokeMutations: result.strokeMutations,
+              },
+            });
+            console.log(
+              `Persisted stain ${pourId} to PostgreSQL (chunk: ${chunkKey})`
+            );
+          } catch (err) {
+            console.error(`Failed to persist stain ${pourId}:`, err);
+          }
+        });
 
         console.log(
           `Physics simulation complete for ${pourId} (${result.computationMs}ms)`

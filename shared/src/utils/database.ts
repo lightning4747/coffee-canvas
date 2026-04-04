@@ -245,10 +245,6 @@ export class DatabaseManager {
     );
   }
 
-  // ============================================================================
-  // STROKE EVENT OPERATIONS
-  // ============================================================================
-
   async insertStrokeEvent(
     event: Omit<StrokeEvent, 'id' | 'createdAt'>
   ): Promise<StrokeEvent> {
@@ -286,6 +282,43 @@ export class DatabaseManager {
       data: row.data,
       createdAt: row.created_at,
     };
+  }
+
+  /**
+   * Batch insert multiple stroke events in a single transaction for efficiency.
+   */
+  async batchInsertStrokeEvents(
+    events: Omit<StrokeEvent, 'id' | 'createdAt'>[],
+    client?: PoolClient
+  ): Promise<void> {
+    if (events.length === 0) return;
+
+    // Use a single INSERT statement with multiple value sets
+    const valueSets: string[] = [];
+    const params: unknown[] = [];
+    let paramIndex = 1;
+
+    for (const event of events) {
+      valueSets.push(
+        `($${paramIndex}, $${paramIndex + 1}, $${paramIndex + 2}, $${paramIndex + 3}, $${paramIndex + 4}, $${paramIndex + 5})`
+      );
+      params.push(
+        event.roomId,
+        event.strokeId,
+        event.userId,
+        event.eventType,
+        event.chunkKey,
+        event.data
+      );
+      paramIndex += 6;
+    }
+
+    const queryText = `
+      INSERT INTO stroke_events (room_id, stroke_id, user_id, event_type, chunk_key, data)
+      VALUES ${valueSets.join(', ')}
+    `;
+
+    await this.query(queryText, params, client);
   }
 
   private mapStrokeRow(row: StrokeEventRow): StrokeEvent {
@@ -334,7 +367,7 @@ export class DatabaseManager {
       WHERE room_id = $1 AND chunk_key IN (${chunkPlaceholders})
     `;
 
-    const params: any[] = [roomId, ...chunkKeys];
+    const params: unknown[] = [roomId, ...chunkKeys];
 
     if (cursor) {
       query += ` AND created_at > $${params.length + 1}`;

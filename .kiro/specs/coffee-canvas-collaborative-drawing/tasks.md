@@ -121,7 +121,7 @@ This implementation plan creates a real-time collaborative drawing application w
     - **Validates: Requirements 1.4**
     - _Status: Verified. Independent Redis keys and room isolation confirmed._
 
-  - [ ] 5.5 Implement coffee pour event coordination
+  - [x] 5.5 Implement coffee pour event coordination
     - Handle coffee_pour events and coordinate with Physics Service
     - Implement gRPC client with connection pooling and timeouts
     - Broadcast stain results and stroke mutations to room participants
