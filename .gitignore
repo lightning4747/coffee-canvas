@@ -45,7 +45,7 @@ Thumbs.db
 
 # Generated files
 shared/src/generated/
-# services/physics-service/proto/ - tracked since generated at build time
+services/physics-service/proto/
 
 # Database
 *.db
