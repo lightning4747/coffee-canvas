@@ -16,7 +16,7 @@ const DATABASE_URL =
 
 // Rate limiting configuration
 const rateLimiter = new RateLimiterMemory({
-  points: 100, // Number of requests
+  points: 5, // Lowered for diagnostic testing
   duration: 60, // Per 60 seconds
 });
 
