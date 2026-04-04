@@ -14,3 +14,15 @@ message:
       "nearby_strokes": [],
       "simulation_steps": 5
     }
+scripts:
+  - type: afterResponse
+    language: text/javascript
+    code: |-
+      pm.test("Successful gRPC status", () => {
+        pm.expect(pm.response.code).to.equal(0);
+      });
+      pm.test("Zero intensity results in no spread", () => {
+        const response = pm.response.toJSON();
+        pm.expect(response.stain_polygons).to.be.empty;
+        pm.expect(response.stroke_mutations).to.be.empty;
+      });
