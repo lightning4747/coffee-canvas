@@ -1,0 +1,16 @@
+$kind: grpc-request
+name: 'ComputeSpread – Zero Intensity'
+url: 'localhost:50051'
+order: 2000
+methodPath: '/CoffeePhysics/ComputeSpread'
+message:
+  content: |-
+    {
+      "room_id": "room-123",
+      "pour_id": "pour-zero",
+      "origin": { "x": 50.0, "y": 50.0 },
+      "intensity": 0.0,
+      "viscosity": 0.5,
+      "nearby_strokes": [],
+      "simulation_steps": 5
+    }

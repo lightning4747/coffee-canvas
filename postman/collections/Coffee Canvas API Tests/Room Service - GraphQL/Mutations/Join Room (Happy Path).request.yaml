@@ -1,0 +1,28 @@
+$kind: http-request
+name: 'Join Room (Happy Path)'
+method: POST
+url: 'http://localhost:3002/graphql'
+order: 5000
+headers:
+  - key: Content-Type
+    value: application/json
+body:
+  type: json
+  content: |-
+    {"query": "mutation JoinRoom($input: JoinRoomInput!) { joinRoom(input: $input) { token user { id displayName color joinedAt } room { id code participantCount } } }", "variables": { "input": { "code": "{{room_code}}", "displayName": "Alice" } }}
+scripts:
+  - type: afterResponse
+    language: text/javascript
+    code: |-
+      pm.test("Status 200", () => pm.response.to.have.status(200));
+      pm.test("No GraphQL errors", () => {
+        const json = pm.response.json();
+        pm.expect(json.errors).to.be.undefined;
+      });
+      pm.test("Returns token for joined user", () => {
+        const json = pm.response.json();
+        pm.expect(json.data.joinRoom.token).to.be.a('string').and.not.empty;
+      });
+      pm.test("Participant count incremented", () => {
+        pm.expect(pm.response.json().data.joinRoom.room.participantCount).to.be.above(1);
+      });

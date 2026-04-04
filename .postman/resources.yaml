@@ -1,0 +1,7 @@
+# Use this workspace to collaborate
+workspace:
+  id: 6050b9b8-b4ea-41ea-8245-701f6f6e548c
+
+localResources:
+  specs:
+    - ..\shared\proto\physics.proto

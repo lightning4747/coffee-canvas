@@ -1,0 +1,12 @@
+$kind: http-request
+name: 'Rate Limiting Check'
+method: GET
+url: 'http://localhost:3002/health'
+order: 2000
+scripts:
+  - type: afterResponse
+    language: text/javascript
+    code: |-
+      pm.test("Status is 200 or 429", () => {
+        pm.expect(pm.response.code).to.be.oneOf([200, 429]);
+      });
