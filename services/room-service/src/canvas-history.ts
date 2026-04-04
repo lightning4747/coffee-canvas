@@ -69,6 +69,12 @@ export interface SerializedCanvasState {
       opacity: number;
       color: string;
     }>;
+    mutations: Array<{
+      strokeId: string;
+      colorShift: string;
+      blurFactor: number;
+      opacityDelta: number;
+    }>;
     createdAt: string;
   }>;
   lastUpdated: string;
@@ -215,6 +221,12 @@ export class CanvasHistoryManager {
           color: polygon.color,
         })),
         createdAt: stain.createdAt.toISOString(),
+        mutations: stain.mutations.map(m => ({
+          strokeId: m.strokeId,
+          colorShift: m.colorShift,
+          blurFactor: Math.round(m.blurFactor * 1000) / 1000,
+          opacityDelta: Math.round(m.opacityDelta * 1000) / 1000,
+        })),
       })),
       lastUpdated: canvasState.lastUpdated.toISOString(),
     };
@@ -267,7 +279,9 @@ export class CanvasHistoryManager {
               tool: event.data.tool,
               color: event.data.color,
               width: event.data.width,
-              points: this.compressPoints(event.data.points || []),
+              ...(event.data.points && {
+                points: this.compressPoints(event.data.points),
+              }),
             },
           });
           break;
@@ -364,7 +378,11 @@ export class CanvasHistoryManager {
       userId: beginEvent.userId,
       tool: beginEvent.data.tool || 'pen',
       color: beginEvent.data.color || '#000000',
-      width: beginEvent.data.width || 2,
+      width:
+        typeof beginEvent.data.width === 'number' &&
+        isFinite(beginEvent.data.width)
+          ? beginEvent.data.width
+          : 2,
       points: allPoints,
       opacity: 1.0,
       createdAt: beginEvent.createdAt,
@@ -381,7 +399,10 @@ export class CanvasHistoryManager {
       polygons: event.data.stainPolygons.map(polygon => ({
         id: polygon.id,
         path: polygon.path || [],
-        opacity: polygon.opacity || 0.5,
+        opacity:
+          typeof polygon.opacity === 'number' && isFinite(polygon.opacity)
+            ? polygon.opacity
+            : 0.5,
         color: polygon.color || '#8B4513',
       })),
       mutations: event.data.strokeMutations || [],

@@ -540,7 +540,7 @@ describe('Canvas History Manager', () => {
 
       const compressed = canvasHistoryManager.compressCanvasState(events);
 
-      expect(compressed[0].data.points).toEqual([]);
+      expect(compressed[0].data.points).toBeUndefined();
     });
   });
 });

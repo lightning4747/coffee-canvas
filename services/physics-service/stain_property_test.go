@@ -97,7 +97,7 @@ func TestStainDataPreservation_ColorShiftTowardsCoffee(t *testing.T) {
 
 	// Half-way should have r in (0x6F, 0xFF)
 	rHalf := hexByte(colorHalf[1:3])
-	if rHalf <= 0x6F || rHalf >= 0xFF {
+	if rHalf <= 0x6F || rHalf == 0xFF {
 		t.Errorf("Half-way red channel %02X out of expected (0x6F, 0xFF)", rHalf)
 	}
 }

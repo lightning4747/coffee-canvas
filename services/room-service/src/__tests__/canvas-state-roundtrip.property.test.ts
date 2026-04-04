@@ -47,22 +47,22 @@ describe('Canvas State Round-trip Consistency Property Tests', () => {
       '#000000',
       '#FFFFFF'
     ),
-    width: fc.float({ min: 1, max: 50 }),
+    width: fc.float({ min: 1, max: 50, noNaN: true }),
     points: fc.array(point2DArbitrary, { minLength: 1, maxLength: 20 }),
   });
 
   const stainPolygonArbitrary = fc.record({
     id: fc.string({ minLength: 1, maxLength: 50 }),
     path: fc.array(point2DArbitrary, { minLength: 3, maxLength: 10 }),
-    opacity: fc.float({ min: 0, max: 1 }),
+    opacity: fc.float({ min: 0, max: 1, noNaN: true }),
     color: fc.constantFrom('#8B4513', '#654321', '#A0522D'),
   });
 
   const strokeMutationArbitrary = fc.record({
     strokeId: fc.string({ minLength: 1, maxLength: 50 }),
     colorShift: fc.constantFrom('#654321', '#8B4513', '#A0522D'),
-    blurFactor: fc.float({ min: 0.5, max: 3.0 }),
-    opacityDelta: fc.float({ min: -0.5, max: 0.5 }),
+    blurFactor: fc.float({ min: 0.5, max: 3.0, noNaN: true }),
+    opacityDelta: fc.float({ min: -0.5, max: 0.5, noNaN: true }),
   });
 
   const strokeEventArbitrary = fc.record({
@@ -227,7 +227,9 @@ describe('Canvas State Round-trip Consistency Property Tests', () => {
             expect(canvasState2.stains.length).toBe(canvasState3.stains.length);
 
             // Compare individual strokes
-            for (const [strokeId, stroke1] of canvasState1.strokes) {
+            for (const [strokeId, stroke1] of Array.from(
+              canvasState1.strokes
+            )) {
               const stroke2 = canvasState2.strokes.get(strokeId);
               const stroke3 = canvasState3.strokes.get(strokeId);
 
@@ -317,6 +319,20 @@ describe('Canvas State Round-trip Consistency Property Tests', () => {
             expect(serialized.stains.length).toBe(
               originalCanvasState.stains.length
             );
+
+            for (const serializedStain of serialized.stains) {
+              const originalStain = originalCanvasState.stains.find(
+                s => s.id === serializedStain.id
+              );
+              expect(originalStain).toBeDefined();
+
+              // Verify mutations if present
+              if (originalStain!.mutations.length > 0) {
+                expect(serializedStain.mutations).toHaveLength(
+                  originalStain!.mutations.length
+                );
+              }
+            }
           }
         )
       );
@@ -342,7 +358,10 @@ describe('Canvas State Round-trip Consistency Property Tests', () => {
 
             // Shuffle segment events only (begin and end must maintain order)
             const shuffledSegments = fc.sample(
-              fc.shuffledSubarray(segmentEvents),
+              fc.shuffledSubarray(segmentEvents, {
+                minLength: segmentEvents.length,
+                maxLength: segmentEvents.length,
+              }),
               1
             )[0];
             const reorderedEvents = [beginEvent, ...shuffledSegments, endEvent];
@@ -408,10 +427,9 @@ describe('Canvas State Round-trip Consistency Property Tests', () => {
             );
 
             // Each stroke should be semantically equivalent
-            for (const [
-              strokeId,
-              originalStroke,
-            ] of originalCanvasState.strokes) {
+            for (const [strokeId, originalStroke] of Array.from(
+              originalCanvasState.strokes
+            )) {
               const compressedStroke =
                 compressedCanvasState.strokes.get(strokeId);
               expect(compressedStroke).toBeDefined();
@@ -456,7 +474,9 @@ describe('Canvas State Round-trip Consistency Property Tests', () => {
           }),
           async strokeSequences => {
             const allEvents = strokeSequences.flatMap(seq => seq.events);
-            const allChunkKeys = [...new Set(allEvents.map(e => e.chunkKey))];
+            const allChunkKeys = Array.from(
+              new Set(allEvents.map(e => e.chunkKey))
+            );
 
             // Mock database to return events for requested chunks
             mockDb.getStrokeEventsInChunksWithPagination.mockResolvedValue({
@@ -484,7 +504,9 @@ describe('Canvas State Round-trip Consistency Property Tests', () => {
               directCanvasState.strokes.size
             );
 
-            for (const [strokeId, directStroke] of directCanvasState.strokes) {
+            for (const [strokeId, directStroke] of Array.from(
+              directCanvasState.strokes
+            )) {
               const reconstructedStroke =
                 reconstructedCanvasState.strokes.get(strokeId);
               expect(reconstructedStroke).toBeDefined();
@@ -580,7 +602,7 @@ describe('Canvas State Round-trip Consistency Property Tests', () => {
             expect(canvasState.lastUpdated).toBeInstanceOf(Date);
 
             // Only complete strokes should be included
-            for (const [strokeId, stroke] of canvasState.strokes) {
+            for (const [strokeId, stroke] of Array.from(canvasState.strokes)) {
               expect(stroke.strokeId).toBe(strokeId);
               expect(stroke.userId).toBeTruthy();
               expect(stroke.tool).toBeTruthy();
