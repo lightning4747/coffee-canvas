@@ -227,9 +227,6 @@ func RunSimulation(req *pb.PourRequest) *SimResult {
 					if nx < 0 || nx >= grid.SizeX || ny < 0 || ny >= grid.SizeY {
 						continue
 					}
-					if _, occupied := grid.StrokeCells[[2]int{nx, ny}]; occupied {
-						continue
-					}
 					amount := cell.Volume * spreadFraction
 					next[nx][ny].Volume += amount
 					if next[nx][ny].Color == "" {
