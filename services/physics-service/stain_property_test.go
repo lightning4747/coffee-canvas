@@ -58,10 +58,18 @@ func TestStainDataPreservation_AllStrokeIdsPreserved(t *testing.T) {
 	}
 
 	mutations := ComputeStrokeMutations(strokes, absorbedMap)
+	if len(mutations) != 2 {
+		t.Fatalf("Expected mutations for both nearby strokes, got %d", len(mutations))
+	}
+	seen := map[string]bool{}
 	for _, m := range mutations {
 		if !ids[m.StrokeId] {
 			t.Errorf("Mutation references unknown stroke_id %q not in nearby strokes", m.StrokeId)
 		}
+		seen[m.StrokeId] = true
+	}
+	if !seen["stroke-A"] || !seen["stroke-B"] {
+		t.Fatalf("Missing expected mutations: %+v", seen)
 	}
 }
 
