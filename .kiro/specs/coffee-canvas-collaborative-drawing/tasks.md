@@ -106,8 +106,7 @@ This implementation plan creates a real-time collaborative drawing application w
     - Create room management and user presence tracking
     - _Requirements: 1.1, 4.5, 8.1_
 
-  - [ ] 5.2 Implement real-time drawing event handlers
-    - Handle stroke_begin, stroke_segment, and stroke_end events
+  - [x] 5.2 Implement real-time drawing event handlers (stroke_begin, stroke_segment, stroke_end) with Redis-based active stroke caching
     - Implement Redis caching for active strokes with TTL
     - Add event broadcasting to room participants
     - _Requirements: 1.1, 1.2, 1.3_
