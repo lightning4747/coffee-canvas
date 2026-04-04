@@ -73,10 +73,12 @@ describe('Canvas State Round-trip Consistency Property Tests', () => {
     eventType: fc.constantFrom('begin', 'segment', 'end'),
     chunkKey: chunkKeyArbitrary,
     data: strokeEventDataArbitrary,
-    createdAt: fc.date({
-      min: new Date('2024-01-01T00:00:00Z'),
-      max: new Date('2024-12-31T23:59:59Z'),
-    }),
+    createdAt: fc
+      .integer({
+        min: new Date('2024-01-01T00:00:00Z').getTime(),
+        max: new Date('2024-12-31T23:59:59Z').getTime(),
+      })
+      .map(t => new Date(t)),
   });
 
   const stainEventArbitrary = fc.record({
@@ -96,10 +98,12 @@ describe('Canvas State Round-trip Consistency Property Tests', () => {
         maxLength: 3,
       }),
     }),
-    createdAt: fc.date({
-      min: new Date('2024-01-01T00:00:00Z'),
-      max: new Date('2024-12-31T23:59:59Z'),
-    }),
+    createdAt: fc
+      .integer({
+        min: new Date('2024-01-01T00:00:00Z').getTime(),
+        max: new Date('2024-12-31T23:59:59Z').getTime(),
+      })
+      .map(t => new Date(t)),
   });
 
   // Generator for complete stroke sequences (begin -> segments -> end)
@@ -114,10 +118,12 @@ describe('Canvas State Round-trip Consistency Property Tests', () => {
         minLength: 1,
         maxLength: 3,
       }), // segment points
-      fc.date({
-        min: new Date('2024-01-01T00:00:00Z'),
-        max: new Date('2024-12-31T23:59:59Z'),
-      })
+      fc
+        .integer({
+          min: new Date('2024-01-01T00:00:00Z').getTime(),
+          max: new Date('2024-12-31T23:59:59Z').getTime(),
+        })
+        .map(t => new Date(t))
     )
     .map(
       ([
@@ -327,10 +333,20 @@ describe('Canvas State Round-trip Consistency Property Tests', () => {
               expect(originalStain).toBeDefined();
 
               // Verify mutations if present
-              if (originalStain!.mutations.length > 0) {
-                expect(serializedStain.mutations).toHaveLength(
-                  originalStain!.mutations.length
-                );
+              expect(serializedStain.mutations).toHaveLength(
+                originalStain!.mutations.length
+              );
+              for (let i = 0; i < serializedStain.mutations.length; i++) {
+                const sMut = serializedStain.mutations[i];
+                const oMut = originalStain!.mutations[i];
+                expect(sMut.strokeId).toBe(oMut.strokeId);
+                expect(sMut.colorShift).toBe(oMut.colorShift);
+                expect(
+                  Math.abs(sMut.blurFactor - oMut.blurFactor)
+                ).toBeLessThan(0.001);
+                expect(
+                  Math.abs(sMut.opacityDelta - oMut.opacityDelta)
+                ).toBeLessThan(0.001);
               }
             }
           }
