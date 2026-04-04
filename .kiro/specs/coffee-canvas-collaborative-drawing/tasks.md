@@ -58,10 +58,12 @@ This implementation plan creates a real-time collaborative drawing application w
     - Implement stroke event reconstruction from database
     - Add canvas state serialization and compression
     - _Requirements: 1.5, 3.3, 6.3_
+    - _Status: Completed. Verified with integration and unit tests._
 
   - [x] 3.4 Write property test for canvas state round-trip consistency
     - **Property 3: Canvas State Round-trip Consistency**
     - **Validates: Requirements 1.5, 3.5, 6.3**
+    - _Status: Stabilized. Property tests now achieve 100% pass rate with robust event sequence generators._
 
   - [x] 3.5 Write unit tests for Room Service
     - Test JWT token generation and validation
@@ -69,28 +71,29 @@ This implementation plan creates a real-time collaborative drawing application w
     - Test GraphQL resolver edge cases
     - _Requirements: 4.1, 4.2, 4.3_
 
-- [ ] 4. Physics Service Implementation (Go)
-  - [ ] 4.1 Implement gRPC Physics Service with fluid simulation
+- [x] 4. Physics Service Implementation (Go)
+  - [x] 4.1 Implement gRPC Physics Service with fluid simulation
     - Create Go service with gRPC server for coffee pour calculations
     - Implement grid-based fluid simulation with viscosity and absorption
     - Add marching squares algorithm for stain polygon generation
     - _Requirements: 2.1, 2.2, 5.2_
 
-  - [ ]\* 4.2 Write property test for physics volume conservation
+  - [x]\* 4.2 Write property test for physics volume conservation
     - **Property 4: Physics Volume Conservation**
     - **Validates: Requirements 2.2, 2.5**
 
-  - [ ] 4.3 Implement stroke mutation calculations
+  - [x] 4.3 Implement stroke mutation calculations
     - Calculate color shifts and blur effects for coffee-stained strokes
     - Implement absorption rate calculations based on stroke properties
     - Add opacity and visual effect mutations
     - _Requirements: 2.2, 2.4_
 
-  - [ ]\* 4.4 Write property test for stain data preservation
+  - [x]\* 4.4 Write property test for stain data preservation
     - **Property 5: Stain Data Preservation**
     - **Validates: Requirements 2.4, 6.2**
+    - _Status: Verified. Deterministic mutations and boundary edge cases fixed._
 
-  - [ ]\* 4.5 Write unit tests for Physics Service
+  - [x]\* 4.5 Write unit tests for Physics Service
     - Test fluid simulation determinism with fixed seeds
     - Test performance benchmarks for 100ms target
     - Test edge cases for boundary conditions
@@ -139,11 +142,10 @@ This implementation plan creates a real-time collaborative drawing application w
     - Test gRPC client integration with Physics Service
     - _Requirements: 1.1, 1.2, 2.1_
 
-- [ ] 6. Checkpoint - Backend Services Integration
-  - Ensure all backend services start correctly with Docker Compose
-  - Verify gRPC communication between Canvas and Physics services
-  - Test Redis pub/sub and PostgreSQL connections
-  - Ask the user if questions arise about backend integration
+- [x] 6. Checkpoint - Backend Services Integration
+  - [x] Ensure all backend services start correctly with Docker Compose
+  - [x] Verify gRPC communication between Canvas and Physics services
+  - [x] Test Redis pub/sub and PostgreSQL connections
 
 - [ ] 7. Frontend Canvas Engine Implementation
   - [ ] 7.1 Create Next.js application with PixiJS canvas
