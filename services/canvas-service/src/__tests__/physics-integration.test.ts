@@ -32,7 +32,10 @@ jest.mock('redis', () => ({
 
 interface MockSocket extends EventEmitter {
   id: string;
-  handshake: { auth: { token: string }; headers: Record<string, any> };
+  handshake: {
+    auth: { token: string };
+    headers: Record<string, string | string[] | undefined>;
+  };
   data: { user: { userId: string; roomId: string; displayName: string } };
   join: jest.Mock;
   to: jest.Mock;
@@ -72,8 +75,13 @@ describe('Physics Integration Verification', () => {
 
   beforeEach(async () => {
     const mockHttpServer = new EventEmitter();
-    const result = await initializeCanvasService(mockHttpServer as any, 'mock');
-    io = result.io as any;
+    const result = await initializeCanvasService(
+      mockHttpServer as unknown as Parameters<
+        typeof initializeCanvasService
+      >[0],
+      'mock'
+    );
+    io = result.io as unknown as EventEmitter & { to: jest.Mock };
 
     // Mock io.to(roomId).emit
     io.to = jest.fn().mockReturnValue({ emit: jest.fn() });
@@ -98,8 +106,10 @@ describe('Physics Integration Verification', () => {
     socket.to = jest.fn().mockReturnValue({ emit: broadcastEmit });
 
     // Register handlers
-    const connectionListeners = io.listeners('connection');
-    connectionListeners.forEach((l: any) => l(socket));
+    const connectionListeners = io.listeners('connection') as Array<
+      (s: EventEmitter) => void
+    >;
+    connectionListeners.forEach(l => l(socket));
 
     // Payload for coffee_pour
     const pourPayload = {

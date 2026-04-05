@@ -39,8 +39,18 @@ jest.mock('../auth', () => ({
 
 interface MockSocket extends EventEmitter {
   id: string;
-  handshake: { auth: { token: string }; headers: any };
-  data: { user: any };
+  handshake: {
+    auth: { token: string };
+    headers: Record<string, string | string[] | undefined>;
+  };
+  data: {
+    user: {
+      userId: string;
+      roomId: string;
+      displayName: string;
+      color: string;
+    };
+  };
   join: jest.Mock;
   to: jest.Mock;
 }
@@ -72,12 +82,17 @@ function createMockSocket(
 }
 
 describe('Canvas Service Property Tests', () => {
-  let io: EventEmitter;
+  let io: EventEmitter & { to: jest.Mock };
 
   beforeEach(async () => {
     const mockHttpServer = new EventEmitter();
-    const result = await initializeCanvasService(mockHttpServer as any, 'mock');
-    io = result.io as unknown as EventEmitter;
+    const result = await initializeCanvasService(
+      mockHttpServer as unknown as Parameters<
+        typeof initializeCanvasService
+      >[0],
+      'mock'
+    );
+    io = result.io as unknown as EventEmitter & { to: jest.Mock };
   });
 
   afterEach(() => {
@@ -116,7 +131,7 @@ describe('Canvas Service Property Tests', () => {
           // Manually trigger the connection handler to register socket listeners
           const connectionListeners = io.listeners('connection');
           connectionListeners.forEach(listener =>
-            (listener as (s: any) => void)(socket)
+            (listener as (s: EventEmitter) => void)(socket)
           );
 
           // Test stroke_begin latency and broadcast
@@ -193,10 +208,12 @@ describe('Canvas Service Property Tests', () => {
             '#00F'
           );
 
-          const connectionListeners = io.listeners('connection');
-          connectionListeners.forEach((listener: any) => {
-            (listener as any)(s1);
-            (listener as any)(s2);
+          const connectionListeners = io.listeners('connection') as Array<
+            (socket: EventEmitter) => void
+          >;
+          connectionListeners.forEach(listener => {
+            listener(s1);
+            listener(s2);
           });
 
           // Interleave strokes
@@ -283,10 +300,12 @@ describe('Canvas Service Property Tests', () => {
             '#00F'
           );
 
-          const connectionListeners = io.listeners('connection');
-          connectionListeners.forEach((listener: any) => {
-            (listener as any)(s1);
-            (listener as any)(s2);
+          const connectionListeners = io.listeners('connection') as Array<
+            (socket: EventEmitter) => void
+          >;
+          connectionListeners.forEach(listener => {
+            listener(s1);
+            listener(s2);
           });
 
           // Clear mocks from user-joined broadcasts

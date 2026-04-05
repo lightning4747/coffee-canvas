@@ -1,0 +1,145 @@
+[
+  {
+    "filePath": "V:\\Microservices\\coffee-canvas\\services\\canvas-service\\src\\__tests__\\auth-enforcement.property.test.ts",
+    "messages": [],
+    "suppressedMessages": [
+      {
+        "ruleId": "@typescript-eslint/no-var-requires",
+        "severity": 2,
+        "message": "Require statement not part of import statement.",
+        "line": 12,
+        "column": 15,
+        "nodeType": "CallExpression",
+        "messageId": "noVarReqs",
+        "endLine": 12,
+        "endColumn": 38,
+        "suppressions": [{ "kind": "directive", "justification": "" }]
+      },
+      {
+        "ruleId": "@typescript-eslint/no-var-requires",
+        "severity": 2,
+        "message": "Require statement not part of import statement.",
+        "line": 117,
+        "column": 17,
+        "nodeType": "CallExpression",
+        "messageId": "noVarReqs",
+        "endLine": 117,
+        "endColumn": 40,
+        "suppressions": [{ "kind": "directive", "justification": "" }]
+      },
+      {
+        "ruleId": "@typescript-eslint/no-var-requires",
+        "severity": 2,
+        "message": "Require statement not part of import statement.",
+        "line": 364,
+        "column": 25,
+        "nodeType": "CallExpression",
+        "messageId": "noVarReqs",
+        "endLine": 364,
+        "endColumn": 48,
+        "suppressions": [{ "kind": "directive", "justification": "" }]
+      },
+      {
+        "ruleId": "@typescript-eslint/no-var-requires",
+        "severity": 2,
+        "message": "Require statement not part of import statement.",
+        "line": 399,
+        "column": 25,
+        "nodeType": "CallExpression",
+        "messageId": "noVarReqs",
+        "endLine": 399,
+        "endColumn": 48,
+        "suppressions": [{ "kind": "directive", "justification": "" }]
+      }
+    ],
+    "errorCount": 0,
+    "fatalErrorCount": 0,
+    "warningCount": 0,
+    "fixableErrorCount": 0,
+    "fixableWarningCount": 0,
+    "usedDeprecatedRules": [
+      { "ruleId": "no-extra-semi", "replacedBy": [] },
+      { "ruleId": "no-mixed-spaces-and-tabs", "replacedBy": [] }
+    ]
+  },
+  {
+    "filePath": "V:\\Microservices\\coffee-canvas\\services\\canvas-service\\src\\__tests__\\canvas-properties.property.test.ts",
+    "messages": [],
+    "suppressedMessages": [],
+    "errorCount": 0,
+    "fatalErrorCount": 0,
+    "warningCount": 0,
+    "fixableErrorCount": 0,
+    "fixableWarningCount": 0,
+    "usedDeprecatedRules": [
+      { "ruleId": "no-extra-semi", "replacedBy": [] },
+      { "ruleId": "no-mixed-spaces-and-tabs", "replacedBy": [] }
+    ]
+  },
+  {
+    "filePath": "V:\\Microservices\\coffee-canvas\\services\\canvas-service\\src\\__tests__\\persistence.integration.test.ts",
+    "messages": [],
+    "suppressedMessages": [
+      {
+        "ruleId": "@typescript-eslint/no-var-requires",
+        "severity": 2,
+        "message": "Require statement not part of import statement.",
+        "line": 46,
+        "column": 24,
+        "nodeType": "CallExpression",
+        "messageId": "noVarReqs",
+        "endLine": 46,
+        "endColumn": 41,
+        "suppressions": [{ "kind": "directive", "justification": "" }]
+      }
+    ],
+    "errorCount": 0,
+    "fatalErrorCount": 0,
+    "warningCount": 0,
+    "fixableErrorCount": 0,
+    "fixableWarningCount": 0,
+    "usedDeprecatedRules": [
+      { "ruleId": "no-extra-semi", "replacedBy": [] },
+      { "ruleId": "no-mixed-spaces-and-tabs", "replacedBy": [] }
+    ]
+  },
+  {
+    "filePath": "V:\\Microservices\\coffee-canvas\\services\\canvas-service\\src\\__tests__\\physics-integration.test.ts",
+    "messages": [
+      {
+        "ruleId": "@typescript-eslint/no-explicit-any",
+        "severity": 1,
+        "message": "Unexpected any. Specify a different type.",
+        "line": 75,
+        "column": 79,
+        "nodeType": "TSAnyKeyword",
+        "messageId": "unexpectedAny",
+        "endLine": 75,
+        "endColumn": 82,
+        "suggestions": [
+          {
+            "messageId": "suggestUnknown",
+            "fix": { "range": [2028, 2031], "text": "unknown" },
+            "desc": "Use `unknown` instead, this will force you to explicitly, and safely assert the type is correct."
+          },
+          {
+            "messageId": "suggestNever",
+            "fix": { "range": [2028, 2031], "text": "never" },
+            "desc": "Use `never` instead, this is useful when instantiating generic type parameters that you don't need to know the type of."
+          }
+        ]
+      }
+    ],
+    "suppressedMessages": [],
+    "errorCount": 0,
+    "fatalErrorCount": 0,
+    "warningCount": 1,
+    "fixableErrorCount": 0,
+    "fixableWarningCount": 0,
+    "source": "import { EventEmitter } from 'events';\nimport { initializeCanvasService } from '../index';\nimport { physicsClient } from '../physics-client';\n\n// --- Mocks ---\n\n// Mock Redis\nconst mockRedisClient = {\n  connect: jest.fn().mockResolvedValue(undefined),\n  on: jest.fn(),\n  hSet: jest.fn().mockResolvedValue(1),\n  hGetAll: jest.fn().mockResolvedValue({\n    userId: 'user-1',\n    roomId: 'room-1',\n    tool: 'pen',\n    color: '#000',\n    width: '2',\n    startTime: Date.now().toString(),\n  }),\n  sAdd: jest.fn().mockResolvedValue(1),\n  sMembers: jest.fn().mockResolvedValue(['stroke-1']),\n  sRem: jest.fn().mockResolvedValue(1),\n  rPush: jest.fn().mockResolvedValue(1),\n  lPush: jest.fn().mockResolvedValue(1),\n  lRange: jest.fn().mockResolvedValue([JSON.stringify({ x: 10, y: 10 })]),\n  expire: jest.fn().mockResolvedValue(true),\n};\n\njest.mock('redis', () => ({\n  createClient: jest.fn(() => mockRedisClient),\n}));\n\ninterface MockSocket extends EventEmitter {\n  id: string;\n  handshake: { auth: { token: string }; headers: Record<string, string | string[] | undefined> };\n  data: { user: { userId: string; roomId: string; displayName: string } };\n  join: jest.Mock;\n  to: jest.Mock;\n}\n\n// Mock Physics Client\njest.mock('../physics-client', () => ({\n  physicsClient: {\n    computeSpread: jest.fn().mockResolvedValue({\n      pourId: 'pour-123',\n      stainPolygons: [\n        {\n          id: 'stain-1',\n          path: [{ x: 5, y: 5 }],\n          opacity: 0.8,\n          color: '#442200',\n        },\n      ],\n      strokeMutations: [],\n      computationMs: 15,\n    }),\n  },\n}));\n\n// Mock JWT Validation\njest.mock('../auth', () => ({\n  validateJWT: jest.fn().mockResolvedValue({\n    userId: 'user-1',\n    roomId: 'room-1',\n    displayName: 'Test User',\n    color: '#F00',\n  }),\n}));\n\ndescribe('Physics Integration Verification', () => {\n  let io: EventEmitter & { to: jest.Mock };\n\n  beforeEach(async () => {\n    const mockHttpServer = new EventEmitter();\n    const result = await initializeCanvasService(mockHttpServer as unknown as any, 'mock');\n    io = result.io as unknown as EventEmitter & { to: jest.Mock };\n\n    // Mock io.to(roomId).emit\n    io.to = jest.fn().mockReturnValue({ emit: jest.fn() });\n  });\n\n  afterEach(() => {\n    jest.clearAllMocks();\n  });\n\n  it('Should handle coffee_pour, call physics service, and broadcast stain_result', async () => {\n    const roomId = 'room-1';\n    const userId = 'user-1';\n\n    // Mock socket setup\n    const socket = new EventEmitter() as MockSocket;\n    socket.id = 'socket-1';\n    socket.handshake = { auth: { token: 'valid-token' }, headers: {} };\n    socket.data = { user: { userId, roomId, displayName: 'Test User' } };\n    socket.join = jest.fn();\n\n    const broadcastEmit = jest.fn();\n    socket.to = jest.fn().mockReturnValue({ emit: broadcastEmit });\n\n    // Register handlers\n    const connectionListeners = io.listeners('connection');\n    connectionListeners.forEach((l: (...args: unknown[]) => void) => (l as (s: EventEmitter) => void)(socket));\n\n    // Payload for coffee_pour\n    const pourPayload = {\n      roomId,\n      userId,\n      pourId: 'pour-123',\n      origin: { x: 100, y: 100 },\n      intensity: 10,\n      timestamp: Date.now(),\n    };\n\n    // Trigger coffee_pour\n    socket.emit('coffee_pour', pourPayload);\n\n    // Wait for the async handler to finish\n    await new Promise(resolve => setTimeout(resolve, 50));\n\n    // Assertions\n    // 1. Should have fetched active strokes from Redis\n    expect(mockRedisClient.sMembers).toHaveBeenCalledWith(\n      `canvas:room:${roomId}:active_strokes`\n    );\n\n    // 2. Should have called physics client with correct data\n    expect(physicsClient.computeSpread).toHaveBeenCalledWith(\n      roomId,\n      'pour-123',\n      pourPayload.origin,\n      pourPayload.intensity,\n      expect.arrayContaining([\n        expect.objectContaining({\n          strokeId: 'stroke-1',\n          points: [{ x: 10, y: 10 }],\n        }),\n      ])\n    );\n\n    // 3. Should have cached the result in Redis\n    expect(mockRedisClient.lPush).toHaveBeenCalledWith(\n      `canvas:room:${roomId}:stains`,\n      expect.stringContaining('\"pourId\":\"pour-123\"')\n    );\n    expect(mockRedisClient.expire).toHaveBeenCalledWith(\n      `canvas:room:${roomId}:stains`,\n      3600\n    );\n\n    // 4. Should have broadcast stain_result to the room\n    expect(io.to).toHaveBeenCalledWith(roomId);\n  });\n});\n",
+    "usedDeprecatedRules": [
+      { "ruleId": "no-extra-semi", "replacedBy": [] },
+      { "ruleId": "no-mixed-spaces-and-tabs", "replacedBy": [] }
+    ]
+  }
+]
