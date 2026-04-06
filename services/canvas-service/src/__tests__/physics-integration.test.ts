@@ -81,7 +81,15 @@ describe('Physics Integration Verification', () => {
       >[0],
       { redisUrl: 'mock' }
     );
-    io = result.io as unknown as EventEmitter & { to: jest.Mock };
+    io = result.io as unknown as EventEmitter & {
+      to: jest.Mock;
+      close: (cb?: () => void) => void;
+    };
+
+    // Ensure io.close is a functional mock
+    io.close = jest.fn((cb?: () => void) => {
+      if (cb) cb();
+    });
 
     // Mock io.to(roomId).emit
     io.to = jest.fn().mockReturnValue({ emit: jest.fn() });
