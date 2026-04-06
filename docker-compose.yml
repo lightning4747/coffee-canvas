@@ -3,7 +3,7 @@ services:
   redis:
     image: redis:7-alpine
     ports:
-      - "6379:6379"
+      - '6379:6379'
     command: redis-server /usr/local/etc/redis/redis.conf
     volumes:
       - redis_data:/data
@@ -11,7 +11,7 @@ services:
     environment:
       - REDIS_PASSWORD=${REDIS_PASSWORD:-}
     healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
+      test: ['CMD', 'redis-cli', 'ping']
       interval: 10s
       timeout: 5s
       retries: 3
@@ -19,7 +19,7 @@ services:
   postgres:
     image: postgis/postgis:16-3.4-alpine
     ports:
-      - "5432:5432"
+      - '5432:5432'
     environment:
       - POSTGRES_DB=${POSTGRES_DB:-coffeecanvas}
       - POSTGRES_USER=${POSTGRES_USER:-postgres}
@@ -28,7 +28,7 @@ services:
       - postgres_data:/var/lib/postgresql/data
       - ./services/database/init:/docker-entrypoint-initdb.d
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres}"]
+      test: ['CMD-SHELL', 'pg_isready -U ${POSTGRES_USER:-postgres}']
       interval: 10s
       timeout: 5s
       retries: 3
@@ -39,7 +39,7 @@ services:
       context: .
       dockerfile: services/canvas-service/Dockerfile.dev
     ports:
-      - "3001:3001"
+      - '3001:3001'
     environment:
       - NODE_ENV=${NODE_ENV:-development}
       - PORT=3001
@@ -55,7 +55,7 @@ services:
       physics-service:
         condition: service_started
     volumes:
-      - .:/app  # Mount root so shared/ and services/ are both available
+      - .:/app # Mount root so shared/ and services/ are both available
       - /app/node_modules # Protect the internal node_modules
     command: npm run dev -w services/canvas-service
 
@@ -64,7 +64,7 @@ services:
       context: .
       dockerfile: services/room-service/Dockerfile.dev
     ports:
-      - "3002:3002"
+      - '3002:3002'
     environment:
       - NODE_ENV=${NODE_ENV:-development}
       - PORT=3002
@@ -83,7 +83,7 @@ services:
       context: .
       dockerfile: services/physics-service/Dockerfile.dev
     ports:
-      - "50051:50051"
+      - '50051:50051'
     environment:
       - PORT=50051
       - LOG_LEVEL=${LOG_LEVEL:-info}
@@ -98,7 +98,7 @@ services:
       context: .
       dockerfile: frontend/Dockerfile.dev
     ports:
-      - "3000:3000"
+      - '3000:3000'
     environment:
       - NODE_ENV=${NODE_ENV:-development}
       - NEXT_PUBLIC_CANVAS_SERVICE_URL=http://localhost:3001
@@ -116,7 +116,7 @@ services:
   nginx:
     image: nginx:alpine
     ports:
-      - "80:80"
+      - '80:80'
     volumes:
       - ./nginx.conf:/etc/nginx/nginx.conf:ro
     depends_on:

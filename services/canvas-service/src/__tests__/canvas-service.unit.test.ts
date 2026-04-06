@@ -69,11 +69,9 @@ describe('CanvasService Unit Tests', () => {
       on: jest.fn(),
       hSet: jest.fn().mockResolvedValue(1),
       hGet: jest.fn().mockResolvedValue(JSON.stringify(testPayload)),
-      hGetAll: jest
-        .fn()
-        .mockResolvedValue({
-          'stroke-1': JSON.stringify({ roomId: 'room-1' }),
-        }),
+      hGetAll: jest.fn().mockResolvedValue({
+        'stroke-1': JSON.stringify({ roomId: 'room-1' }),
+      }),
       lPush: jest.fn().mockResolvedValue(1),
       lRange: jest.fn().mockResolvedValue([]),
       lTrim: jest.fn().mockResolvedValue('OK'),
