@@ -108,6 +108,7 @@ export async function initializeCanvasService(
     console.log('Connected to Redis for stroke caching');
   } catch (err) {
     console.error('Failed to connect to Redis:', err);
+    throw err;
   }
 
   // Initialize Socket.IO with CORS and Redis adapter
