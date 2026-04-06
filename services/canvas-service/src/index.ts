@@ -71,16 +71,31 @@ interface PhysicsStrokeContext {
 
 export async function initializeCanvasService(
   httpServer: HttpServer,
-  redisUrl: string = REDIS_URL
+  options: {
+    redisUrl?: string;
+    redisClient?: any;
+    dbManager?: DatabaseManager;
+    physicsClient?: any;
+  } = {}
 ) {
-  // Redis client for caching active strokes
-  const redisClient = createClient({ url: redisUrl });
-  redisClient.on('error', err => console.error('Redis Client Error', err));
+  const redisUrl = options.redisUrl || REDIS_URL;
 
-  // Database manager for persistent storage
-  const dbManager = new DatabaseManager(
-    process.env.DATABASE_URL || DATABASE_URL
-  );
+  // 1. Initialize Redis Client
+  const redisClient = options.redisClient || createClient({ url: redisUrl });
+
+  if (!options.redisClient) {
+    redisClient.on('error', (err: any) =>
+      console.error('Redis Client Error', err)
+    );
+  }
+
+  // 2. Initialize Database Manager
+  const dbManager =
+    options.dbManager ||
+    new DatabaseManager(process.env.DATABASE_URL || DATABASE_URL);
+
+  // 3. Initialize Physics Client (default from import if not provided)
+  const effectivePhysicsClient = options.physicsClient || physicsClient;
 
   try {
     await redisClient.connect();
@@ -257,7 +272,7 @@ export async function initializeCanvasService(
 
             if (!strokeMeta.roomId || pointsJson.length === 0) return;
 
-            const points = pointsJson.map(p => JSON.parse(p));
+            const points = pointsJson.map((p: any) => JSON.parse(p));
             const firstPoint = points[0];
             const chunkKey = calculateChunkKey(firstPoint);
 
@@ -337,7 +352,7 @@ export async function initializeCanvasService(
             0,
             -1
           );
-          const points = pointsJson.map(p => JSON.parse(p));
+          const points = pointsJson.map((p: any) => JSON.parse(p));
 
           strokeDataList.push({
             strokeId,
@@ -353,7 +368,7 @@ export async function initializeCanvasService(
         }
 
         // 2. Call Physics Service via gRPC
-        const result = await physicsClient.computeSpread(
+        const result = await effectivePhysicsClient.computeSpread(
           roomId,
           pourId,
           origin,
@@ -374,13 +389,11 @@ export async function initializeCanvasService(
         // Set a generous TTL or ensure permanent storage in 5.6
         await redisClient.expire(`canvas:room:${roomId}:stains`, 3600); // 1 hour buffer until persistence
 
-        // 4. Broadcast stain result to room participants
-        io.to(roomId).emit('stain_result', result);
-
         // --- ASYNCHRONOUS PERSISTENCE (Task 5.6) ---
+        // NOTE: queued BEFORE broadcast so persistence runs even if broadcast fails
+        const chunkKey = calculateChunkKey(origin);
         setImmediate(async () => {
           try {
-            const chunkKey = calculateChunkKey(origin);
             await dbManager.insertStrokeEvent({
               roomId,
               strokeId: pourId, // Use pourId as strokeId for stains
@@ -399,6 +412,16 @@ export async function initializeCanvasService(
             console.error(`Failed to persist stain ${pourId}:`, err);
           }
         });
+
+        // 4. Broadcast stain result to room participants
+        try {
+          io.to(roomId).emit('stain_result', result);
+        } catch (broadcastErr) {
+          console.warn(
+            `Failed to broadcast stain_result for ${pourId}:`,
+            broadcastErr
+          );
+        }
 
         console.log(
           `Physics simulation complete for ${pourId} (${result.computationMs}ms)`
@@ -444,7 +467,7 @@ export async function initializeCanvasService(
     });
   });
 
-  return { io, redisClient };
+  return { io, redisClient, dbManager };
 }
 
 const app = express();

@@ -127,15 +127,18 @@ This implementation plan creates a real-time collaborative drawing application w
     - Broadcast stain results and stroke mutations to room participants
     - _Requirements: 2.1, 2.3, 5.2_
 
-  - [ ] 5.6 Add stroke persistence and batch operations
+  - [x] 5.6 Add stroke persistence and batch operations
     - Implement asynchronous stroke persistence to PostgreSQL
     - Add spatial chunk key calculation for stroke distribution
     - Create batch insert operations for performance optimization
     - _Requirements: 1.3, 3.2, 6.1_
+    - _Status: Complete. Async persistence via `setImmediate` for both strokes and stains._
 
-  - [ ]\* 5.7 Write property test for stroke persistence consistency
-    - **Property 9: Stroke Persistence Consistency**
-    - **Validates: Requirements 1.3, 6.1**
+  - [x]\* 5.7 Write property test for stroke persistence consistency
+    - **Property 9: Stroke Persistence Consistency** ✅
+    - **Property 10: Stain Persistence Consistency** ✅
+    - **Validates: Requirements 1.3, 1.5, 6.1, 6.2**
+    - _Status: Complete. All 5 property tests pass (5/5)._
 
   - [ ]\* 5.8 Write unit tests for Canvas Service
     - Test Socket.IO event handlers with mock payloads
