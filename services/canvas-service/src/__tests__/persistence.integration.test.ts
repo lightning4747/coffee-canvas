@@ -47,11 +47,18 @@ jest.mock('socket.io', () => {
   return {
     Server: jest.fn().mockImplementation(() => {
       const ee = new EventEmitter();
-      (ee as EventEmitter & { use: jest.Mock }).use = jest.fn();
-      (ee as EventEmitter & { to: jest.Mock }).to = jest
-        .fn()
-        .mockReturnValue({ emit: jest.fn() });
-      return ee;
+      const ioMock = ee as EventEmitter & {
+        use: jest.Mock;
+        to: jest.Mock;
+        close: jest.Mock;
+      };
+      ioMock.use = jest.fn();
+      ioMock.to = jest.fn().mockReturnValue({ emit: jest.fn() });
+      ioMock.close = jest.fn().mockImplementation(cb => {
+        if (cb) cb();
+        return Promise.resolve();
+      });
+      return ioMock;
     }),
   };
 });

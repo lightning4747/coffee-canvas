@@ -362,13 +362,13 @@ export class CanvasHistoryManager {
     // Collect all points from segments
     const allPoints: Point2D[] = [];
     for (const segment of segmentEvents) {
-      if (segment.data.points) {
+      if (segment.data && segment.data.points) {
         allPoints.push(...segment.data.points);
       }
     }
 
     // If end event has points, use those as the complete set
-    if (endEvent?.data.points) {
+    if (endEvent && endEvent.data && endEvent.data.points) {
       allPoints.length = 0; // Clear segment points
       allPoints.push(...endEvent.data.points);
     }
@@ -379,6 +379,7 @@ export class CanvasHistoryManager {
       tool: beginEvent.data.tool || 'pen',
       color: beginEvent.data.color || '#000000',
       width:
+        beginEvent.data &&
         typeof beginEvent.data.width === 'number' &&
         isFinite(beginEvent.data.width)
           ? beginEvent.data.width
@@ -390,7 +391,7 @@ export class CanvasHistoryManager {
   }
 
   private processStainEvent(event: StrokeEvent): StainEffect | null {
-    if (!event.data.stainPolygons) {
+    if (!event.data || !event.data.stainPolygons) {
       return null;
     }
 
