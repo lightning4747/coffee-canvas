@@ -355,7 +355,6 @@ export class CanvasHistoryManager {
 
     // Must have at least a begin event
     if (!beginEvent) {
-      console.warn(`Incomplete stroke: ${strokeId} - missing begin event`);
       return null;
     }
 
@@ -376,8 +375,8 @@ export class CanvasHistoryManager {
     return {
       strokeId,
       userId: beginEvent.userId,
-      tool: beginEvent.data.tool || 'pen',
-      color: beginEvent.data.color || '#000000',
+      tool: beginEvent.data?.tool || 'pen',
+      color: beginEvent.data?.color || '#000000',
       width:
         beginEvent.data &&
         typeof beginEvent.data.width === 'number' &&
