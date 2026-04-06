@@ -107,7 +107,7 @@ describe('Persistence Integration Verification', () => {
       mockHttpServer as unknown as Parameters<
         typeof initializeCanvasService
       >[0],
-      'mock'
+      { redisUrl: 'mock' }
     );
     io = result.io as unknown as Server;
 

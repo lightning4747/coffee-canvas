@@ -15,7 +15,7 @@ import {
   StrokeEvent,
 } from '@coffee-canvas/shared';
 import { validateJWT } from './auth';
-import { physicsClient } from './physics-client';
+import { physicsClient, PhysicsClient } from './physics-client';
 
 const PORT = process.env.PORT || 3001;
 const REDIS_URL = process.env.REDIS_URL || 'redis://localhost:6379';
@@ -69,21 +69,26 @@ interface PhysicsStrokeContext {
   timestamp: number;
 }
 
+export interface CanvasServiceOptions {
+  redisUrl?: string;
+  redisClient?: any; // Generic redis client (Return of createClient)
+  dbManager?: DatabaseManager;
+  physicsClient?: PhysicsClient;
+}
+
 export async function initializeCanvasService(
   httpServer: HttpServer,
-  options: {
-    redisUrl?: string;
-    redisClient?: any;
-    dbManager?: DatabaseManager;
-    physicsClient?: any;
-  } = {}
+  options: CanvasServiceOptions | string = {}
 ) {
-  const redisUrl = options.redisUrl || REDIS_URL;
+  const normalizedOptions =
+    typeof options === 'string' ? { redisUrl: options } : options;
+  const redisUrl = normalizedOptions.redisUrl || REDIS_URL;
 
   // 1. Initialize Redis Client
-  const redisClient = options.redisClient || createClient({ url: redisUrl });
+  const redisClient =
+    normalizedOptions.redisClient || createClient({ url: redisUrl });
 
-  if (!options.redisClient) {
+  if (!normalizedOptions.redisClient) {
     redisClient.on('error', (err: any) =>
       console.error('Redis Client Error', err)
     );
@@ -91,11 +96,12 @@ export async function initializeCanvasService(
 
   // 2. Initialize Database Manager
   const dbManager =
-    options.dbManager ||
+    normalizedOptions.dbManager ||
     new DatabaseManager(process.env.DATABASE_URL || DATABASE_URL);
 
   // 3. Initialize Physics Client (default from import if not provided)
-  const effectivePhysicsClient = options.physicsClient || physicsClient;
+  const effectivePhysicsClient =
+    normalizedOptions.physicsClient || physicsClient;
 
   try {
     await redisClient.connect();

@@ -79,7 +79,7 @@ describe('Physics Integration Verification', () => {
       mockHttpServer as unknown as Parameters<
         typeof initializeCanvasService
       >[0],
-      'mock'
+      { redisUrl: 'mock' }
     );
     io = result.io as unknown as EventEmitter & { to: jest.Mock };
 
