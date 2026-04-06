@@ -140,7 +140,7 @@ This implementation plan creates a real-time collaborative drawing application w
     - **Validates: Requirements 1.3, 1.5, 6.1, 6.2**
     - _Status: Complete. All 5 property tests pass (5/5)._
 
-  - [ ]\* 5.8 Write unit tests for Canvas Service
+  - [x]\* 5.8 Write unit tests for Canvas Service
     - Test Socket.IO event handlers with mock payloads
     - Test Redis operations and error handling
     - Test gRPC client integration with Physics Service
