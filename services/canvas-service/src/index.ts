@@ -80,6 +80,8 @@ export async function initializeCanvasService(
   httpServer: HttpServer,
   options: CanvasServiceOptions | string = {}
 ) {
+  const pendingPersistenceTasks = new Set<Promise<void>>();
+
   const normalizedOptions =
     typeof options === 'string' ? { redisUrl: options } : options;
   const redisUrl = normalizedOptions.redisUrl || REDIS_URL;
@@ -273,62 +275,66 @@ export async function initializeCanvasService(
 
         // --- ASYNCHRONOUS PERSISTENCE (Task 5.6) ---
         // We do this after the broadcast to maintain zero-latency for users
-        setImmediate(async () => {
-          try {
-            // 1. Fetch metadata and all points
-            const [strokeMeta, pointsJson] = await Promise.all([
-              redisClient.hGetAll(`canvas:stroke:${strokeId}`),
-              redisClient.lRange(`canvas:stroke:${strokeId}:points`, 0, -1),
-            ]);
+        setImmediate(() => {
+          const p = (async () => {
+            try {
+              // 1. Fetch metadata and all points
+              const [strokeMeta, pointsJson] = await Promise.all([
+                redisClient.hGetAll(`canvas:stroke:${strokeId}`),
+                redisClient.lRange(`canvas:stroke:${strokeId}:points`, 0, -1),
+              ]);
 
-            if (!strokeMeta.roomId || pointsJson.length === 0) return;
+              if (!strokeMeta.roomId || pointsJson.length === 0) return;
 
-            const points = pointsJson.map((p: any) => JSON.parse(p));
-            const firstPoint = points[0];
-            const chunkKey = calculateChunkKey(firstPoint);
+              const points = pointsJson.map((p: any) => JSON.parse(p));
+              const firstPoint = points[0];
+              const chunkKey = calculateChunkKey(firstPoint);
 
-            // 2. Prepare batch events
-            const events: Omit<StrokeEvent, 'id' | 'createdAt'>[] = [];
+              // 2. Prepare batch events
+              const events: Omit<StrokeEvent, 'id' | 'createdAt'>[] = [];
 
-            // Begin event
-            events.push({
-              roomId,
-              strokeId,
-              userId,
-              eventType: 'begin',
-              chunkKey,
-              data: {
-                tool: strokeMeta.tool,
-                color: strokeMeta.color,
-                width: parseFloat(strokeMeta.width),
-              },
-            });
+              // Begin event
+              events.push({
+                roomId,
+                strokeId,
+                userId,
+                eventType: 'begin',
+                chunkKey,
+                data: {
+                  tool: strokeMeta.tool,
+                  color: strokeMeta.color,
+                  width: parseFloat(strokeMeta.width),
+                },
+              });
 
-            // Segment event (contains all points for the history record)
-            events.push({
-              roomId,
-              strokeId,
-              userId,
-              eventType: 'segment',
-              chunkKey,
-              data: { points },
-            });
+              // Segment event (contains all points for the history record)
+              events.push({
+                roomId,
+                strokeId,
+                userId,
+                eventType: 'segment',
+                chunkKey,
+                data: { points },
+              });
 
-            // End event
-            events.push({
-              roomId,
-              strokeId,
-              userId,
-              eventType: 'end',
-              chunkKey,
-              data: {},
-            });
+              // End event
+              events.push({
+                roomId,
+                strokeId,
+                userId,
+                eventType: 'end',
+                chunkKey,
+                data: {},
+              });
 
-            // 3. Batch insert to PostgreSQL
-            await dbManager.batchInsertStrokeEvents(events);
-          } catch (err) {
-            console.error(`Failed to persist stroke ${strokeId}:`, err);
-          }
+              // 3. Batch insert to PostgreSQL
+              await dbManager.batchInsertStrokeEvents(events);
+            } catch (err) {
+              console.error(`Failed to persist stroke ${strokeId}:`, err);
+            }
+          })();
+          pendingPersistenceTasks.add(p);
+          p.finally(() => pendingPersistenceTasks.delete(p));
         });
 
         // Broadcast to others
@@ -409,25 +415,29 @@ export async function initializeCanvasService(
         // --- ASYNCHRONOUS PERSISTENCE (Task 5.6) ---
         // NOTE: queued BEFORE broadcast so persistence runs even if broadcast fails
         const chunkKey = calculateChunkKey(origin);
-        setImmediate(async () => {
-          try {
-            await dbManager.insertStrokeEvent({
-              roomId,
-              strokeId: pourId, // Use pourId as strokeId for stains
-              userId,
-              eventType: 'stain',
-              chunkKey,
-              data: {
-                stainPolygons: result.stainPolygons,
-                strokeMutations: result.strokeMutations,
-              },
-            });
-            console.log(
-              `Persisted stain ${pourId} to PostgreSQL (chunk: ${chunkKey})`
-            );
-          } catch (err) {
-            console.error(`Failed to persist stain ${pourId}:`, err);
-          }
+        setImmediate(() => {
+          const p = (async () => {
+            try {
+              await dbManager.insertStrokeEvent({
+                roomId,
+                strokeId: pourId, // Use pourId as strokeId for stains
+                userId,
+                eventType: 'stain',
+                chunkKey,
+                data: {
+                  stainPolygons: result.stainPolygons,
+                  strokeMutations: result.strokeMutations,
+                },
+              });
+              console.log(
+                `Persisted stain ${pourId} to PostgreSQL (chunk: ${chunkKey})`
+              );
+            } catch (err) {
+              console.error(`Failed to persist stain ${pourId}:`, err);
+            }
+          })();
+          pendingPersistenceTasks.add(p);
+          p.finally(() => pendingPersistenceTasks.delete(p));
         });
 
         // 4. Broadcast stain result to room participants
@@ -465,20 +475,28 @@ export async function initializeCanvasService(
     });
 
     // Handle disconnection
-    socket.on('disconnect', reason => {
-      console.log(
-        `User ${displayName} disconnected from room ${roomId} (reason: ${reason})`
-      );
+    socket.on('disconnect', async reason => {
+      try {
+        console.log(
+          `User ${displayName} disconnected from room ${roomId} (reason: ${reason})`
+        );
 
-      // Notify others in the room
-      socket.to(roomId).emit('user-left', {
-        userId,
-        displayName,
-        timestamp: Date.now(),
-      });
+        // Notify others in the room
+        socket.to(roomId).emit('user-left', {
+          userId,
+          displayName,
+          timestamp: Date.now(),
+        });
 
-      // Remove from room's active users in Redis
-      redisClient.sRem(`canvas:room:${roomId}:active_users`, userId);
+        // Remove from room's active users in Redis
+        // Requirement 1.3: Ensure user metadata is cleaned up to prevent stale presence
+        await redisClient.sRem(`canvas:room:${roomId}:active_users`, userId);
+      } catch (error) {
+        console.error(
+          `Error during disconnect cleanup for user ${userId}:`,
+          error
+        );
+      }
     });
 
     // Error handling for the socket
@@ -487,7 +505,28 @@ export async function initializeCanvasService(
     });
   });
 
-  return { io, redisClient, dbManager };
+  const flushPendingTasks = async (timeoutMs = 10000) => {
+    if (pendingPersistenceTasks.size === 0) return;
+    console.log(
+      `Waiting for ${pendingPersistenceTasks.size} pending persistence tasks to flush...`
+    );
+
+    const timeout = new Promise((_, reject) =>
+      setTimeout(() => reject(new Error('Flush timeout')), timeoutMs)
+    );
+
+    try {
+      await Promise.race([
+        Promise.allSettled(Array.from(pendingPersistenceTasks)),
+        timeout,
+      ]);
+      console.log('All pending persistence tasks flushed.');
+    } catch (err: any) {
+      console.error('Flush failed or timed out:', err.message);
+    }
+  };
+
+  return { io, redisClient, dbManager, flushPendingTasks };
 }
 
 const app = express();
@@ -504,22 +543,47 @@ app.get('/health', (req, res) => {
 
 // Initialize and start service
 if (require.main === module) {
-  initializeCanvasService(httpServer).then(() => {
-    httpServer.listen(PORT, () => {
-      console.log(`Canvas Service running on port ${PORT}`);
-      console.log(`Health check: http://localhost:${PORT}/health`);
-    });
-
-    // Graceful shutdown
-    const shutdown = () => {
-      console.log('Canvas Service shutting down...');
-      httpServer.close(() => {
-        console.log('HTTP server closed.');
-        process.exit(0);
+  initializeCanvasService(httpServer).then(
+    ({ io, redisClient, flushPendingTasks }) => {
+      httpServer.listen(PORT, () => {
+        console.log(`Canvas Service running on port ${PORT}`);
+        console.log(`Health check: http://localhost:${PORT}/health`);
       });
-    };
 
-    process.on('SIGTERM', shutdown);
-    process.on('SIGINT', shutdown);
-  });
+      // Graceful shutdown
+      const shutdown = async () => {
+        console.log('Canvas Service shutting down...');
+
+        // 1. Stop accepting new connections and close existing ones
+        await new Promise<void>(resolve => {
+          httpServer.close(() => {
+            console.log('HTTP server closed.');
+            resolve();
+          });
+          // Force close after a short delay if many connections are hanging
+          setTimeout(() => resolve(), 2000);
+        });
+
+        // 2. Shut down Socket.IO (disconnects clients)
+        await io.close();
+
+        // 3. Flush pending persistence tasks
+        await flushPendingTasks();
+
+        // 4. Disconnect from Redis
+        try {
+          await redisClient.disconnect();
+          console.log('Disconnected from Redis.');
+        } catch (err) {
+          console.error('Error during Redis disconnect:', err);
+        }
+
+        console.log('Shutdown complete.');
+        process.exit(0);
+      };
+
+      process.on('SIGTERM', shutdown);
+      process.on('SIGINT', shutdown);
+    }
+  );
 }
