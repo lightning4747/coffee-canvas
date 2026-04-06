@@ -116,6 +116,12 @@ describe('Persistence Integration Verification', () => {
     dbManager = instances[instances.length - 1].value;
   });
 
+  afterAll(async () => {
+    if (io) {
+      await new Promise<void>(resolve => io.close(() => resolve()));
+    }
+  });
+
   test('should persist stroke asynchronously on stroke_end', async () => {
     const socket = new EventEmitter() as MockSocket;
     socket.id = 'socket-1';

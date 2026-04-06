@@ -22,7 +22,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '24'
+          node-version: '22'
           cache: 'npm'
 
       - name: Install dependencies
@@ -72,7 +72,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '24'
+          node-version: '22'
           cache: 'npm'
 
       - name: Setup Go
@@ -89,7 +89,7 @@ jobs:
       - name: Run TypeScript tests
         run: npm run test:ci
         env:
-          DATABASE_URL: postgresql://postgres:testpass@localhost:5432/coffeecanvas_test
+          DATABASE_URL: postgres://postgres:testpass@localhost:5432/coffeecanvas_test
           REDIS_URL: redis://localhost:6379
 
       - name: Test Go Physics Service
@@ -104,9 +104,22 @@ jobs:
     needs: [lint-and-format, test]
     if: github.event_name == 'push'
 
+    permissions:
+      contents: read
+      packages: write
+
     strategy:
+      fail-fast: false
       matrix:
-        service: [canvas-service, room-service, physics-service, frontend]
+        include:
+          - name: canvas-service
+            path: ./services/canvas-service/Dockerfile
+          - name: room-service
+            path: ./services/room-service/Dockerfile
+          - name: physics-service
+            path: ./services/physics-service/Dockerfile
+          - name: frontend
+            path: ./frontend/Dockerfile
 
     steps:
       - name: Checkout code
@@ -126,7 +139,7 @@ jobs:
         id: meta
         uses: docker/metadata-action@v5
         with:
-          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}/${{ matrix.service }}
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}/${{ matrix.name }}
           tags: |
             type=ref,event=branch
             type=ref,event=pr
@@ -137,7 +150,7 @@ jobs:
         uses: docker/build-push-action@v5
         with:
           context: .
-          file: ./services/${{ matrix.service }}/Dockerfile
+          file: ${{ matrix.path }}
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}

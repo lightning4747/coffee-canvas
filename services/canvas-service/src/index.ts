@@ -71,7 +71,8 @@ interface PhysicsStrokeContext {
 
 export interface CanvasServiceOptions {
   redisUrl?: string;
-  redisClient?: any; // Generic redis client (Return of createClient)
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  redisClient?: any; // Keep as any for compatibility with different redis client versions, but we'll cast it locally
   dbManager?: DatabaseManager;
   physicsClient?: PhysicsClient;
 }
@@ -91,7 +92,8 @@ export async function initializeCanvasService(
     normalizedOptions.redisClient || createClient({ url: redisUrl });
 
   if (!normalizedOptions.redisClient) {
-    redisClient.on('error', (err: any) =>
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (redisClient as any).on('error', (err: Error) =>
       console.error('Redis Client Error', err)
     );
   }
@@ -286,7 +288,9 @@ export async function initializeCanvasService(
 
               if (!strokeMeta.roomId || pointsJson.length === 0) return;
 
-              const points = pointsJson.map((p: any) => JSON.parse(p));
+              const points = pointsJson.map(
+                (p: string) => JSON.parse(p) as { x: number; y: number }
+              );
               const firstPoint = points[0];
               const chunkKey = calculateChunkKey(firstPoint);
 
@@ -375,7 +379,9 @@ export async function initializeCanvasService(
             0,
             -1
           );
-          const points = pointsJson.map((p: any) => JSON.parse(p));
+          const points = pointsJson.map(
+            (p: string) => JSON.parse(p) as { x: number; y: number }
+          );
 
           strokeDataList.push({
             strokeId,
@@ -521,8 +527,11 @@ export async function initializeCanvasService(
         timeout,
       ]);
       console.log('All pending persistence tasks flushed.');
-    } catch (err: any) {
-      console.error('Flush failed or timed out:', err.message);
+    } catch (err: unknown) {
+      console.error(
+        'Flush failed or timed out:',
+        err instanceof Error ? err.message : String(err)
+      );
     }
   };
 

@@ -18,8 +18,13 @@ const packageDefinition = protoLoader.loadSync(PROTO_PATH, {
   oneofs: true,
 });
 
-const physicsProto = grpc.loadPackageDefinition(packageDefinition)
-  .physics as any;
+const physicsProto = grpc.loadPackageDefinition(
+  packageDefinition
+) as unknown as {
+  physics: {
+    CoffeePhysics: typeof grpc.Client;
+  };
+};
 
 /**
  * Service client for interacting with the Physics Service via gRPC
@@ -28,7 +33,8 @@ export class PhysicsClient {
   private client: any;
 
   constructor() {
-    this.client = new physicsProto.CoffeePhysics(
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    this.client = new (physicsProto.physics.CoffeePhysics as any)(
       PHYSICS_SERVICE_URL,
       grpc.credentials.createInsecure()
     );

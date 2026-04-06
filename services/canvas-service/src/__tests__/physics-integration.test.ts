@@ -71,7 +71,7 @@ jest.mock('../auth', () => ({
 }));
 
 describe('Physics Integration Verification', () => {
-  let io: EventEmitter & { to: jest.Mock };
+  let io: EventEmitter & { to: jest.Mock; close?: (cb?: () => void) => void };
 
   beforeEach(async () => {
     const mockHttpServer = new EventEmitter();
@@ -89,6 +89,12 @@ describe('Physics Integration Verification', () => {
 
   afterEach(() => {
     jest.clearAllMocks();
+  });
+
+  afterAll(async () => {
+    if (io && io.close) {
+      await new Promise<void>(resolve => io.close!(() => resolve()));
+    }
   });
 
   it('Should handle coffee_pour, call physics service, and broadcast stain_result', async () => {
