@@ -355,7 +355,13 @@ export async function initializeCanvasService(
           const strokeMeta = await redisClient.hGetAll(
             `canvas:stroke:${strokeId}`
           );
-          if (!strokeMeta.roomId) continue;
+          if (!strokeMeta.roomId) {
+            await redisClient.sRem(
+              `canvas:room:${roomId}:active_strokes`,
+              strokeId
+            );
+            continue;
+          }
 
           // Fetch points
           const pointsJson = await redisClient.lRange(
