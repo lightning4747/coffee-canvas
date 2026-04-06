@@ -1,19 +1,19 @@
+import {
+  calculateChunkKey,
+  CoffeePourPayload,
+  DatabaseManager,
+  JWTPayload,
+  StainResult,
+  StrokeBeginPayload,
+  StrokeEndPayload,
+  StrokeEvent,
+  StrokeSegmentPayload,
+} from '@coffee-canvas/shared';
 import express from 'express';
 import { createServer, Server as HttpServer } from 'http';
+import { createClient } from 'redis';
 import { Server } from 'socket.io';
 import { createAdapter } from 'socket.io-redis';
-import { createClient } from 'redis';
-import {
-  JWTPayload,
-  StrokeBeginPayload,
-  StrokeSegmentPayload,
-  StrokeEndPayload,
-  CoffeePourPayload,
-  StainResult,
-  DatabaseManager,
-  calculateChunkKey,
-  StrokeEvent,
-} from '@coffee-canvas/shared';
 import { validateJWT } from './auth';
 import { physicsClient, PhysicsClient } from './physics-client';
 
@@ -251,17 +251,15 @@ export async function initializeCanvasService(
         if (payload.roomId !== roomId) return;
 
         const strokeId = payload.strokeId;
+        const strokeKey = `canvas:stroke:${strokeId}`;
+
+        // Check if stroke exists before marking it complete
+        // Requirement 1.5: Prevent stray stroke_end events from creating new keys
+        const exists = await redisClient.exists(strokeKey);
+        if (!exists) return;
 
         // Mark stroke as complete in Redis
-        await redisClient.hSet(
-          `canvas:stroke:${strokeId}`,
-          'status',
-          'completed'
-        );
-
-        // Check if stroke exists
-        const exists = await redisClient.exists(`canvas:stroke:${strokeId}`);
-        if (!exists) return;
+        await redisClient.hSet(strokeKey, 'status', 'completed');
 
         // Remove from active strokes set
         await redisClient.sRem(
