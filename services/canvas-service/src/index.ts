@@ -164,8 +164,14 @@ export async function initializeCanvasService(
 
   // Connection handling
   io.on('connection', socket => {
-    const { user } = socket.data;
-    if (!user) return; // Should not happen due to middleware
+    const { user } = socket.data || {};
+    if (!user) {
+      console.warn(
+        `Socket ${socket.id} connected without user data. Disconnecting.`
+      );
+      socket.disconnect();
+      return;
+    }
     const { userId, roomId, displayName } = user;
 
     console.log(
@@ -465,6 +471,9 @@ export async function initializeCanvasService(
         displayName,
         timestamp: Date.now(),
       });
+
+      // Remove from room's active users in Redis
+      redisClient.sRem(`canvas:room:${roomId}:active_users`, userId);
     });
 
     // Error handling for the socket
