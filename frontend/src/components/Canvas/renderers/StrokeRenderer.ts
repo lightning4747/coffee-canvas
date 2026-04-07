@@ -21,7 +21,8 @@ export class StrokeRenderer {
     graphics.clear();
 
     // Parse hex color string to numeric
-    const color = parseInt(style.color.replace(/^#/, ''), 16);
+    const parsed = parseInt(style.color.replace(/^#/, ''), 16);
+    const color = Number.isNaN(parsed) ? 0x000000 : parsed;
 
     graphics.lineStyle({
       width: style.width,
