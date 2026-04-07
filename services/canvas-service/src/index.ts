@@ -168,7 +168,7 @@ export async function initializeCanvasService(
   });
 
   // Connection handling
-  io.on('connection', socket => {
+  io.on('connection', async socket => {
     const { user } = socket.data || {};
     if (!user) {
       console.warn(
@@ -471,6 +471,13 @@ export async function initializeCanvasService(
 
     // Join the user to their specific room
     socket.join(roomId);
+
+    // Track user presence in Redis
+    try {
+      await redisClient.sAdd(`canvas:room:${roomId}:active_users`, userId);
+    } catch (presenceErr) {
+      console.warn(`Failed to track presence for user ${userId}:`, presenceErr);
+    }
 
     // Broadcast user-joined event to others in the room
     socket.to(roomId).emit('user-joined', {
