@@ -17,6 +17,7 @@ describe('useViewport', () => {
         zoom: 1,
       },
       setViewport: jest.fn(),
+      activeTool: 'pen',
     });
   });
 
