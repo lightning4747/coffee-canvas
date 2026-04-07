@@ -3,34 +3,53 @@ import { EventEmitter } from 'events';
 import { initializeCanvasService } from '../index';
 import { calculateChunkKey } from '@coffee-canvas/shared';
 
-// Mock Redis (MUST BE AT TOP FOR HOISTING)
-export const mockRedisClient = {
-  connect: jest.fn().mockResolvedValue(undefined),
-  on: jest.fn(),
+// Mock dependencies
+const mockRedisClient = {
   hSet: jest.fn().mockResolvedValue(1),
   hGetAll: jest.fn().mockResolvedValue({}),
   sAdd: jest.fn().mockResolvedValue(1),
   sRem: jest.fn().mockResolvedValue(1),
+  sMembers: jest.fn().mockResolvedValue([]),
   rPush: jest.fn().mockResolvedValue(1),
   lPush: jest.fn().mockResolvedValue(1),
   lRange: jest.fn().mockResolvedValue([]),
-  exists: jest.fn().mockResolvedValue(1),
   expire: jest.fn().mockResolvedValue(true),
-  sMembers: jest.fn().mockResolvedValue([]),
+  exists: jest.fn().mockResolvedValue(1),
+  connect: jest.fn().mockResolvedValue(undefined),
+  on: jest.fn(),
 };
 
 jest.mock('redis', () => ({
-  createClient: jest.fn().mockImplementation(() => mockRedisClient),
+  createClient: jest.fn(() => mockRedisClient),
 }));
 
-// Mock Socket.IO Server and Adapter
 jest.mock('socket.io-redis', () => ({
-  createAdapter: jest.fn().mockReturnValue(
-    class MockAdapter {
-      init() {}
-    }
-  ),
+  createAdapter: jest.fn(),
 }));
+
+jest.mock('socket.io', () => {
+  // eslint-disable-next-line @typescript-eslint/no-var-requires
+  const EventEmitter = require('events');
+  return {
+    Server: jest.fn().mockImplementation(() => {
+      const ee = new EventEmitter();
+      const ioMock = ee as EventEmitter & {
+        use: jest.Mock;
+        to: jest.Mock;
+        close: jest.Mock;
+        adapter: jest.Mock;
+      };
+      ioMock.use = jest.fn();
+      ioMock.to = jest.fn().mockReturnValue({ emit: jest.fn() });
+      ioMock.close = jest.fn().mockImplementation(cb => {
+        if (cb) cb();
+        return Promise.resolve();
+      });
+      ioMock.adapter = jest.fn();
+      return ioMock;
+    }),
+  };
+});
 
 // Mock JWT Validation
 jest.mock('../auth', () => ({
@@ -124,6 +143,7 @@ describe('Canvas Service Property Tests', () => {
     const result = await (initializeCanvasService as any)(
       mockHttpServer as any,
       {
+        redisUrl: 'mock',
         redisClient: mockRedisClient,
         dbManager: mockDbManager as any,
         physicsClient: mockPhysicsClient,
@@ -166,10 +186,10 @@ describe('Canvas Service Property Tests', () => {
           // Mimic the 'connection' logic manually since we are testing handlers
           // In index.ts, handlers are registered on 'connection'
           // Manually trigger the connection handler to register socket listeners
-          const connectionListeners = io.listeners('connection');
-          connectionListeners.forEach(listener =>
-            (listener as (s: EventEmitter) => void)(socket)
-          );
+          const connectionListeners = io.listeners('connection') as Array<
+            (s: EventEmitter) => Promise<void>
+          >;
+          await Promise.all(connectionListeners.map(l => l(socket)));
 
           // Test stroke_begin broadcast
           const beginPayload = {
@@ -242,12 +262,11 @@ describe('Canvas Service Property Tests', () => {
           );
 
           const connectionListeners = io.listeners('connection') as Array<
-            (socket: EventEmitter) => void
+            (socket: EventEmitter) => Promise<void>
           >;
-          connectionListeners.forEach(listener => {
-            listener(s1);
-            listener(s2);
-          });
+          // Properly await the async connection handlers
+          await Promise.all(connectionListeners.map(l => l(s1)));
+          await Promise.all(connectionListeners.map(l => l(s2)));
 
           // Interleave strokes
           s1.emit('stroke_begin', {
@@ -334,12 +353,11 @@ describe('Canvas Service Property Tests', () => {
           );
 
           const connectionListeners = io.listeners('connection') as Array<
-            (socket: EventEmitter) => void
+            (socket: EventEmitter) => Promise<void>
           >;
-          connectionListeners.forEach(listener => {
-            listener(s1);
-            listener(s2);
-          });
+          // Properly await the async connection handlers
+          await Promise.all(connectionListeners.map(l => l(s1)));
+          await Promise.all(connectionListeners.map(l => l(s2)));
 
           // Clear mocks from user-joined broadcasts
           b1.mockClear();
@@ -391,9 +409,9 @@ describe('Canvas Service Property Tests', () => {
 
           // Register handlers
           const connectionListeners = io.listeners('connection') as Array<
-            (s: EventEmitter) => void
+            (s: EventEmitter) => Promise<void>
           >;
-          connectionListeners.forEach(l => l(socket));
+          await Promise.all(connectionListeners.map(l => l(socket)));
 
           // 0. Setup and clear mocks
           mockRedisClient.exists.mockResolvedValue(1);
@@ -466,9 +484,9 @@ describe('Canvas Service Property Tests', () => {
 
           // Register handlers
           const connectionListeners = io.listeners('connection') as Array<
-            (s: EventEmitter) => void
+            (s: EventEmitter) => Promise<void>
           >;
-          connectionListeners.forEach(l => l(socket));
+          await Promise.all(connectionListeners.map(l => l(socket)));
 
           // 0. Setup and clear mocks
           mockDbManager.insertStrokeEvent.mockClear();

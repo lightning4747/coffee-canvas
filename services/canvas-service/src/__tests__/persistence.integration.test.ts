@@ -22,6 +22,7 @@ jest.mock('redis', () => ({
       width: '2',
       startTime: Date.now().toString(),
     }),
+    sAdd: jest.fn().mockResolvedValue(1),
     sRem: jest.fn().mockResolvedValue(1),
     sMembers: jest.fn().mockResolvedValue([]),
     exists: jest.fn().mockResolvedValue(1),
@@ -51,6 +52,7 @@ jest.mock('socket.io', () => {
         use: jest.Mock;
         to: jest.Mock;
         close: jest.Mock;
+        adapter: jest.Mock;
       };
       ioMock.use = jest.fn();
       ioMock.to = jest.fn().mockReturnValue({ emit: jest.fn() });
@@ -58,6 +60,7 @@ jest.mock('socket.io', () => {
         if (cb) cb();
         return Promise.resolve();
       });
+      ioMock.adapter = jest.fn();
       return ioMock;
     }),
   };

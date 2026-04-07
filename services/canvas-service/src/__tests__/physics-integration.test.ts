@@ -16,6 +16,7 @@ const mockRedisClient = {
     color: '#000',
     width: '2',
     startTime: Date.now().toString(),
+    status: 'active',
   }),
   sAdd: jest.fn().mockResolvedValue(1),
   sMembers: jest.fn().mockResolvedValue(['stroke-1']),
@@ -60,6 +61,31 @@ jest.mock('../physics-client', () => ({
   },
 }));
 
+// Mock Socket.IO globally to avoid adapter issues
+jest.mock('socket.io', () => {
+  // eslint-disable-next-line @typescript-eslint/no-var-requires
+  const EventEmitter = require('events');
+  return {
+    Server: jest.fn().mockImplementation(() => {
+      const ee = new EventEmitter();
+      const ioMock = ee as EventEmitter & {
+        use: jest.Mock;
+        to: jest.Mock;
+        close: jest.Mock;
+        adapter: jest.Mock;
+      };
+      ioMock.use = jest.fn();
+      ioMock.to = jest.fn().mockReturnValue({ emit: jest.fn() });
+      ioMock.close = jest.fn().mockImplementation(cb => {
+        if (cb) cb();
+        return Promise.resolve();
+      });
+      ioMock.adapter = jest.fn();
+      return ioMock;
+    }),
+  };
+});
+
 // Mock JWT Validation
 jest.mock('../auth', () => ({
   validateJWT: jest.fn().mockResolvedValue({
@@ -85,14 +111,7 @@ describe('Physics Integration Verification', () => {
       to: jest.Mock;
       close: (cb?: () => void) => void;
     };
-
-    // Ensure io.close is a functional mock
-    io.close = jest.fn((cb?: () => void) => {
-      if (cb) cb();
-    });
-
-    // Mock io.to(roomId).emit
-    io.to = jest.fn().mockReturnValue({ emit: jest.fn() });
+    // Note: io.to and io.close are already mocked by the global jest.mock
   });
 
   afterEach(() => {
