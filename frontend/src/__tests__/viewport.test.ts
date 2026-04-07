@@ -34,6 +34,8 @@ describe('useViewport', () => {
         y: -50,
         zoom: 1,
       },
+      setViewport: jest.fn(),
+      activeTool: 'pen',
     });
 
     const { result } = renderHook(() => useViewport(null, null));
