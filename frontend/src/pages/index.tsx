@@ -1,5 +1,6 @@
 import dynamic from 'next/dynamic';
 import React from 'react';
+import { Toolbar } from '../components/UI/Toolbar';
 
 // Use dynamic import for Canvas to avoid SSR issues with PixiJS
 const Canvas = dynamic(() => import('../components/Canvas/Canvas'), {
@@ -43,10 +44,11 @@ export default function Home() {
           left: 0,
           width: '100%',
           height: '100%',
-          pointerEvents: 'none', // Allow clicks to pass through to canvas by default
+          pointerEvents: 'none',
         }}
       >
-        {/* Toolbar and overlays will go here in 7.3 */}
+        <Toolbar />
+
         <header
           style={{
             position: 'absolute',
@@ -57,7 +59,7 @@ export default function Home() {
             alignItems: 'center',
             gap: '12px',
             padding: '12px 24px',
-            pointerEvents: 'auto', // Re-enable clicks for UI elements
+            pointerEvents: 'auto',
           }}
           className="glass transition-all"
         >
