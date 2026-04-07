@@ -173,5 +173,14 @@ describe('Physics Integration Verification', () => {
 
     // 4. Should have broadcast stain_result to the room
     expect(io.to).toHaveBeenCalledWith(roomId);
+    const toMock = io.to as jest.Mock;
+    const emitMock = toMock.mock.results[0].value.emit;
+    expect(emitMock).toHaveBeenCalledWith(
+      'stain_result',
+      expect.objectContaining({
+        pourId: 'pour-123',
+        stainPolygons: expect.any(Array),
+      })
+    );
   });
 });
