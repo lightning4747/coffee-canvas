@@ -37,7 +37,6 @@ RUN npm ci --omit=dev --workspace=@coffee-canvas/frontend
 
 # Copy built application from builder stage
 COPY --from=builder /app/frontend/.next ./frontend/.next
-COPY --from=builder /app/frontend/public ./frontend/public
 COPY --from=builder /app/frontend/next.config.js ./frontend/next.config.js
 
 EXPOSE 3000
