@@ -79,8 +79,8 @@ describe('Canvas Engine Performance & Memory', () => {
     expect(container.children.length).toBe(1);
 
     // Remove and destroy
-    g.destroy({ children: true, texture: true, baseTexture: true });
     container.removeChild(g);
+    g.destroy({ children: true, texture: true, baseTexture: true });
 
     expect(container.children.length).toBe(0);
   });
