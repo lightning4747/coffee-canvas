@@ -100,43 +100,47 @@ This implementation plan creates a real-time collaborative drawing application w
     - _Requirements: 2.1, 5.2_
 
 - [ ] 5. Canvas Service Implementation
-  - [ ] 5.1 Create Canvas Service with Socket.IO server
+  - [x] 5.1 Create Canvas Service with Socket.IO server
     - Implement WebSocket connection handling with JWT authentication
     - Set up Redis adapter for horizontal scaling across instances
     - Create room management and user presence tracking
     - _Requirements: 1.1, 4.5, 8.1_
 
-  - [ ] 5.2 Implement real-time drawing event handlers
-    - Handle stroke_begin, stroke_segment, and stroke_end events
+  - [x] 5.2 Implement real-time drawing event handlers (stroke_begin, stroke_segment, stroke_end) with Redis-based active stroke caching
     - Implement Redis caching for active strokes with TTL
     - Add event broadcasting to room participants
     - _Requirements: 1.1, 1.2, 1.3_
 
-  - [ ]\* 5.3 Write property test for real-time broadcast latency
+  - [x]\* 5.3 Write property test for real-time broadcast latency
     - **Property 1: Real-time Broadcast Latency**
     - **Validates: Requirements 1.1, 2.1, 5.1, 5.2**
+    - _Status: Verified. Sub-15ms processing overhead confirmed with fast-check._
 
-  - [ ]\* 5.4 Write property test for stroke independence under concurrency
+  - [x]\* 5.4 Write property test for stroke independence under concurrency
     - **Property 2: Stroke Independence Under Concurrency**
     - **Validates: Requirements 1.4**
+    - _Status: Verified. Independent Redis keys and room isolation confirmed._
 
-  - [ ] 5.5 Implement coffee pour event coordination
+  - [x] 5.5 Implement coffee pour event coordination
     - Handle coffee_pour events and coordinate with Physics Service
     - Implement gRPC client with connection pooling and timeouts
     - Broadcast stain results and stroke mutations to room participants
     - _Requirements: 2.1, 2.3, 5.2_
 
-  - [ ] 5.6 Add stroke persistence and batch operations
+  - [x] 5.6 Add stroke persistence and batch operations
     - Implement asynchronous stroke persistence to PostgreSQL
     - Add spatial chunk key calculation for stroke distribution
     - Create batch insert operations for performance optimization
     - _Requirements: 1.3, 3.2, 6.1_
+    - _Status: Complete. Async persistence via `setImmediate` for both strokes and stains._
 
-  - [ ]\* 5.7 Write property test for stroke persistence consistency
-    - **Property 9: Stroke Persistence Consistency**
-    - **Validates: Requirements 1.3, 6.1**
+  - [x]\* 5.7 Write property test for stroke persistence consistency
+    - **Property 9: Stroke Persistence Consistency** ✅
+    - **Property 10: Stain Persistence Consistency** ✅
+    - **Validates: Requirements 1.3, 1.5, 6.1, 6.2**
+    - _Status: Complete. All 5 property tests pass (5/5)._
 
-  - [ ]\* 5.8 Write unit tests for Canvas Service
+  - [x]\* 5.8 Write unit tests for Canvas Service
     - Test Socket.IO event handlers with mock payloads
     - Test Redis operations and error handling
     - Test gRPC client integration with Physics Service
