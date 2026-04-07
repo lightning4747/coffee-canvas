@@ -77,7 +77,7 @@ export const Canvas: React.FC = () => {
 
       // Subtractive mode for Eraser
       if (activeTool === 'eraser') {
-        graphics.blendMode = PIXI.BLEND_MODES.ERASE;
+        graphics.blendMode = PIXI.BLEND_MODES.DST_OUT;
       }
 
       drawingLayer.addChild(graphics);
