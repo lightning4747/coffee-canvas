@@ -55,3 +55,6 @@ services/physics-service/proto/
 # Test files
 coverage/
 *.tsbuildinfo
+
+#agent
+.agent/

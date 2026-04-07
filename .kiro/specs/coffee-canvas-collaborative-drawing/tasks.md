@@ -164,16 +164,16 @@ This implementation plan creates a real-time collaborative drawing application w
     - [x] Add optimistic rendering for immediate visual feedback
     - _Requirements: 7.1, 7.3_
 
-  - [ ] 7.3 Add coffee pour interaction interface
-    - Create coffee pour trigger with intensity controls
-    - Implement visual feedback for pour area and effects
-    - Add animation for stain application and stroke mutations
+  - [x] 7.3 Add coffee pour interaction interface
+    - [x] Create coffee pour trigger with intensity controls
+    - [x] Implement visual feedback for pour area and effects
+    - [x] Add animation for stain application and stroke mutations
     - _Requirements: 2.3, 7.4_
 
-  - [ ]\* 7.4 Write unit tests for canvas engine
-    - Test viewport management and coordinate transformations
-    - Test drawing tool interactions and event handling
-    - Test PixiJS rendering performance and memory usage
+  - [x] 7.4 Write unit tests for canvas engine
+    - [x] Test viewport management and coordinate transformations
+    - [x] Test drawing tool interactions and event handling
+    - [x] Test PixiJS rendering performance and memory usage
     - _Requirements: 3.1, 7.1, 7.2_
 
 - [ ] 8. Real-time Communication Implementation
