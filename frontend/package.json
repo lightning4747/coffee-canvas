@@ -12,27 +12,29 @@
     "clean": "rm -rf .next"
   },
   "dependencies": {
+    "@apollo/client": "^3.8.0",
+    "framer-motion": "^10.16.0",
+    "graphql": "^16.8.0",
     "next": "^14.0.0",
+    "pixi.js": "^7.3.0",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
-    "pixi.js": "^7.3.0",
     "socket.io-client": "^4.7.0",
-    "@apollo/client": "^3.8.0",
-    "graphql": "^16.8.0",
-    "zustand": "^4.4.0",
-    "framer-motion": "^10.16.0"
+    "zustand": "^4.4.0"
   },
   "devDependencies": {
+    "@testing-library/jest-dom": "^6.0.0",
+    "@testing-library/react": "^13.4.0",
+    "@types/jest": "^29.0.0",
     "@types/node": "^24.0.0",
     "@types/react": "^18.2.0",
     "@types/react-dom": "^18.2.0",
-    "typescript": "^5.0.0",
+    "@types/uuid": "^10.0.0",
     "eslint": "^8.0.0",
     "eslint-config-next": "^14.0.0",
     "jest": "^29.0.0",
-    "@types/jest": "^29.0.0",
+    "jest-canvas-mock": "^2.5.2",
     "jest-environment-jsdom": "^29.0.0",
-    "@testing-library/react": "^13.4.0",
-    "@testing-library/jest-dom": "^6.0.0"
+    "typescript": "^5.0.0"
   }
 }
