@@ -1,8 +1,15 @@
-// Database connection and query utilities for Coffee & Canvas
+/**
+ * Database connection and query utilities for the Coffee & Canvas ecosystem.
+ * This manager handles connections to PostgreSQL using a connection pool
+ * and provides high-level methods for room, user, and event persistence.
+ */
 
 import { Pool, PoolClient, QueryResult, QueryResultRow } from 'pg';
 import { Room, StrokeEvent, StrokeEventData, User } from '../types/index.js';
 
+/**
+ * Internal interface representing a row in the stroke_events table.
+ */
 interface StrokeEventRow extends QueryResultRow {
   id: string;
   room_id: string;
@@ -14,9 +21,16 @@ interface StrokeEventRow extends QueryResultRow {
   created_at: Date;
 }
 
+/**
+ * Manages all PostgreSQL database interactions.
+ */
 export class DatabaseManager {
   private pool: Pool;
 
+  /**
+   * Initializes the database connection pool.
+   * @param connectionString - PostgreSQL connection URI.
+   */
   constructor(connectionString: string) {
     this.pool = new Pool({
       connectionString,
@@ -31,8 +45,11 @@ export class DatabaseManager {
   }
 
   /**
-   * Execute a query with parameters.
-   * T is constrained to QueryResultRow to satisfy the pg library types.
+   * Executes a single SQL query.
+   * @param text - The SQL query string.
+   * @param params - Optional parameters for the query.
+   * @param client - Optional specific client to use (for transactions).
+   * @returns A promise resolving to the query result.
    */
   async query<T extends QueryResultRow = QueryResultRow>(
     text: string,
@@ -50,6 +67,12 @@ export class DatabaseManager {
     }
   }
 
+  /**
+   * Wraps a set of operations in a database transaction.
+   * @param callback - Function containing the operations to perform within the transaction.
+   * @returns The result of the callback function.
+   * @throws Will rollback the transaction if the callback fails.
+   */
   async transaction<T>(
     callback: (client: PoolClient) => Promise<T>
   ): Promise<T> {
@@ -67,6 +90,9 @@ export class DatabaseManager {
     }
   }
 
+  /**
+   * Gracefully shuts down the connection pool.
+   */
   async close(): Promise<void> {
     await this.pool.end();
   }
@@ -75,6 +101,14 @@ export class DatabaseManager {
   // ROOM OPERATIONS
   // ============================================================================
 
+  /**
+   * Creates a new collaborative drawing room.
+   * @param code - Unique short identifier for the room.
+   * @param name - Optional descriptive name for the room.
+   * @param capacity - Maximum number of participants (default: 10).
+   * @param client - Optional transaction client.
+   * @returns The created Room object.
+   */
   async createRoom(
     code: string,
     name?: string,
@@ -106,6 +140,11 @@ export class DatabaseManager {
     };
   }
 
+  /**
+   * Finds a room by its short access code.
+   * @param code - The room code to search for.
+   * @returns The Room object or null if not found.
+   */
   async findRoomByCode(code: string): Promise<Room | null> {
     const result = await this.query<{
       id: string;
@@ -137,6 +176,12 @@ export class DatabaseManager {
     };
   }
 
+  /**
+   * Locks a room for update within a transaction.
+   * @param code - The room code.
+   * @param client - The transaction client.
+   * @returns The Room object or null.
+   */
   async getRoomForUpdateByCode(
     code: string,
     client: PoolClient
@@ -178,6 +223,14 @@ export class DatabaseManager {
   // USER OPERATIONS
   // ============================================================================
 
+  /**
+   * Adds a user to a specific room.
+   * @param roomId - The target room UUID.
+   * @param displayName - User's chosen name.
+   * @param color - User's assigned color.
+   * @param client - Optional transaction client.
+   * @returns The created User object.
+   */
   async addUserToRoom(
     roomId: string,
     displayName: string,
@@ -209,6 +262,11 @@ export class DatabaseManager {
     };
   }
 
+  /**
+   * Retrieves all users currently active in a room.
+   * @param roomId - Target room UUID.
+   * @returns Array of active User objects.
+   */
   async getActiveUsersInRoom(
     roomId: string,
     client?: PoolClient
@@ -245,6 +303,11 @@ export class DatabaseManager {
     );
   }
 
+  /**
+   * Persists a single stroke-related event.
+   * @param event - The event data to insert.
+   * @returns The saved StrokeEvent with ID and timestamp.
+   */
   async insertStrokeEvent(
     event: Omit<StrokeEvent, 'id' | 'createdAt'>
   ): Promise<StrokeEvent> {
@@ -285,7 +348,9 @@ export class DatabaseManager {
   }
 
   /**
-   * Batch insert multiple stroke events in a single transaction for efficiency.
+   * Batch insert multiple stroke events in a single operation for high efficiency.
+   * @param events - Array of event data.
+   * @param client - Optional transaction client.
    */
   async batchInsertStrokeEvents(
     events: Omit<StrokeEvent, 'id' | 'createdAt'>[],
@@ -321,6 +386,9 @@ export class DatabaseManager {
     await this.query(queryText, params, client);
   }
 
+  /**
+   * Maps a database row to a StrokeEvent object.
+   */
   private mapStrokeRow(row: StrokeEventRow): StrokeEvent {
     return {
       id: row.id,
@@ -334,6 +402,12 @@ export class DatabaseManager {
     };
   }
 
+  /**
+   * Retrieves stroke events for specific spatial chunks.
+   * @param roomId - Target room UUID.
+   * @param chunkKeys - Array of chunk identifiers (e.g. ["0:0"]).
+   * @returns Array of stroke events found in those chunks.
+   */
   async getStrokeEventsInChunks(
     roomId: string,
     chunkKeys: string[]
@@ -352,6 +426,13 @@ export class DatabaseManager {
     return result.rows.map(this.mapStrokeRow);
   }
 
+  /**
+   * Retrieves stroke events with pagination support using a cursor.
+   * @param roomId - Target room UUID.
+   * @param chunkKeys - Target spatial chunks.
+   * @param cursor - Last seen timestamp for continuation.
+   * @param limit - Maximum number of results.
+   */
   async getStrokeEventsInChunksWithPagination(
     roomId: string,
     chunkKeys: string[],
@@ -386,6 +467,15 @@ export class DatabaseManager {
     return { events, hasMore };
   }
 
+  /**
+   * Retrieves all strokes currently visible in a specific viewport.
+   * Leverages the `get_strokes_in_viewport` database function.
+   * @param roomId - Target room.
+   * @param minX - Left boundary.
+   * @param minY - Top boundary.
+   * @param maxX - Right boundary.
+   * @param maxY - Bottom boundary.
+   */
   async getStrokeEventsInViewport(
     roomId: string,
     minX: number,
@@ -402,6 +492,10 @@ export class DatabaseManager {
     return result.rows.map(this.mapStrokeRow);
   }
 
+  /**
+   * Checks if the database connection is alive.
+   * @returns true if healthy, false otherwise.
+   */
   async healthCheck(): Promise<boolean> {
     try {
       await this.query('SELECT 1');
@@ -411,6 +505,9 @@ export class DatabaseManager {
     }
   }
 
+  /**
+   * Retrieves high-level application usage statistics.
+   */
   async getStats(): Promise<{
     totalRooms: number;
     activeUsers: number;

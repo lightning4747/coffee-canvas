@@ -1,3 +1,9 @@
+/**
+ * gRPC Client for the Coffee Physics Service.
+ * This client translates drawing events into physics simulation requests
+ * and receives stain polygons and stroke mutations in response.
+ */
+
 import * as grpc from '@grpc/grpc-js';
 import * as protoLoader from '@grpc/proto-loader';
 import path from 'path';
@@ -27,11 +33,15 @@ const physicsProto = grpc.loadPackageDefinition(
 };
 
 /**
- * Service client for interacting with the Physics Service via gRPC
+ * Service client for interacting with the Physics Service via gRPC.
+ * Encapsulates the complexity of protobuf serialization and gRPC deadlines.
  */
 export class PhysicsClient {
   private client: any;
 
+  /**
+   * Initializes the gRPC connection to the Physics Service.
+   */
   constructor() {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     this.client = new (physicsProto.physics.CoffeePhysics as any)(
@@ -41,13 +51,15 @@ export class PhysicsClient {
   }
 
   /**
-   * Computes the spread of a coffee pour simulation
-   * @param roomId Target room ID
-   * @param pourId Unique identifier for this pour event
-   * @param origin Starting point of the pour
-   * @param intensity Radius/strength of the pour
-   * @param strokes Nearby strokes to consider for absorption
-   * @returns Promise resolving to the simulation results
+   * Computes the spread of a coffee pour simulation based on nearby canvas geometry.
+   *
+   * @param roomId - Target room ID for the simulation context.
+   * @param pourId - Unique identifier for this specific pour event.
+   * @param origin - Starting point of the pour on the canvas.
+   * @param intensity - Radius and strength of the initial fluid impact.
+   * @param strokes - Array of nearby strokes to consider for absorption and blurring.
+   * @returns Promise resolving to the generated stain results and stroke mutations.
+   * @throws {grpc.ServiceError} If the gRPC call fails or times out.
    */
   async computeSpread(
     roomId: string,
@@ -95,5 +107,7 @@ export class PhysicsClient {
   }
 }
 
-// Singleton instance
+/**
+ * Singleton instance of the PhysicsClient for use throughout the application.
+ */
 export const physicsClient = new PhysicsClient();

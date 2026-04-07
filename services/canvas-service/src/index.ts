@@ -1,3 +1,9 @@
+/**
+ * Real-time Canvas Service for Coffee & Canvas.
+ * This service manages live drawing synchronization, room presence,
+ * and coordinates physics simulations via the Physics Service.
+ */
+
 import {
   calculateChunkKey,
   CoffeePourPayload,
@@ -23,40 +29,67 @@ const DATABASE_URL =
   process.env.DATABASE_URL ||
   'postgres://postgres:postgres@localhost:5432/coffee_canvas';
 
+/**
+ * Events emitted from the server to clients.
+ */
 interface ServerToClientEvents {
+  /** Notifies others that a user has joined. */
   'user-joined': (payload: {
     userId: string;
     displayName: string;
     color: string;
     timestamp: number;
   }) => void;
+  /** Notifies others that a user has left. */
   'user-left': (payload: {
     userId: string;
     displayName: string;
     timestamp: number;
   }) => void;
+  /** Relays the start of a stroke. */
   stroke_begin: (payload: StrokeBeginPayload) => void;
+  /** Relays stroke segments. */
   stroke_segment: (payload: StrokeSegmentPayload) => void;
+  /** Relays the end of a stroke. */
   stroke_end: (payload: StrokeEndPayload) => void;
+  /** Relays the result of a physics simulation. */
   stain_result: (payload: StainResult) => void;
+  /** Sends generic error messages. */
   error: (payload: { message: string }) => void;
 }
 
+/**
+ * Events accepted by the server from clients.
+ */
 interface ClientToServerEvents {
+  /** Signal to start a new drawing stroke. */
   stroke_begin: (payload: StrokeBeginPayload) => void;
+  /** Signal to add points to an existing stroke. */
   stroke_segment: (payload: StrokeSegmentPayload) => void;
+  /** Signal to complete a drawing stroke. */
   stroke_end: (payload: StrokeEndPayload) => void;
+  /** Signal to trigger a physics coffee pour. */
   coffee_pour: (payload: CoffeePourPayload) => void;
 }
 
+/**
+ * Events passed between multiple socket.io-redis instances.
+ */
 interface InterServerEvents {
   // For Redis adapter inter-instance communication
 }
 
+/**
+ * Custom data attached to each Socket instance.
+ */
 interface SocketData {
+  /** Authenticated user profile from JWT. */
   user: JWTPayload;
 }
 
+/**
+ * Internal context for strokes passed to the physics simulation.
+ */
 interface PhysicsStrokeContext {
   strokeId: string;
   userId: string;
@@ -69,18 +102,34 @@ interface PhysicsStrokeContext {
   timestamp: number;
 }
 
+/**
+ * Initialization options for the Canvas Service.
+ */
 export interface CanvasServiceOptions {
+  /** Optional override for Redis URL. */
   redisUrl?: string;
+  /** Optional pre-configured Redis client (useful for mocking). */
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  redisClient?: any; // Keep as any for compatibility with different redis client versions, but we'll cast it locally
+  redisClient?: any;
+  /** Optional custom DatabaseManager instance. */
   dbManager?: DatabaseManager;
+  /** Optional custom PhysicsClient instance. */
   physicsClient?: PhysicsClient;
 }
 
+/**
+ * Bootstraps the Canvas Service logic on top of an existing HTTP server.
+ * Handles Redis/DB connections, Socket.IO setup, and event routing.
+ *
+ * @param httpServer - The standard Node.js/Express HTTP server.
+ * @param options - Configuration overrides for dependencies.
+ * @returns Object containing the io server and cleanup utilities.
+ */
 export async function initializeCanvasService(
   httpServer: HttpServer,
   options: CanvasServiceOptions | string = {}
 ) {
+  /** Tracking set for background persistence operations to ensure graceful shutdown. */
   const pendingPersistenceTasks = new Set<Promise<void>>();
 
   const normalizedOptions =
@@ -185,7 +234,9 @@ export async function initializeCanvasService(
 
     // --- Drawing Event Handlers ---
 
-    // Handle stroke_begin
+    /**
+     * Cache the initial stroke state and metadata.
+     */
     socket.on('stroke_begin', async (payload: StrokeBeginPayload) => {
       try {
         const { strokeId } = payload;
@@ -227,7 +278,9 @@ export async function initializeCanvasService(
       }
     });
 
-    // Handle stroke_segment
+    /**
+     * Incremental buffer of drawing points in Redis.
+     */
     socket.on('stroke_segment', async (payload: StrokeSegmentPayload) => {
       try {
         if (payload.roomId !== roomId) return;
@@ -249,7 +302,9 @@ export async function initializeCanvasService(
       }
     });
 
-    // Handle stroke_end
+    /**
+     * Finalizes stroke and triggers asynchronous persistence to PostgreSQL.
+     */
     socket.on('stroke_end', async (payload: StrokeEndPayload) => {
       try {
         if (payload.roomId !== roomId) return;
@@ -348,7 +403,10 @@ export async function initializeCanvasService(
       }
     });
 
-    // Handle coffee_pour
+    /**
+     * Handles coffee pour events by coordinating with the gRPC Physics Service
+     * and persisting the generated stains.
+     */
     socket.on('coffee_pour', async (payload: CoffeePourPayload) => {
       try {
         if (payload.roomId !== roomId) return;
@@ -518,6 +576,9 @@ export async function initializeCanvasService(
     });
   });
 
+  /**
+   * Utility to await all outstanding persistence promises before shutdown.
+   */
   const flushPendingTasks = async (timeoutMs = 10000) => {
     if (pendingPersistenceTasks.size === 0) return;
     console.log(

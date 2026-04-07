@@ -1,3 +1,10 @@
+/**
+ * GraphQL Resolvers for the Room Service.
+ * This module handles room creation, user joining, and canvas history retrieval.
+ * It integrates with the DatabaseManager and CanvasHistoryManager to provide
+ * a unified API for the frontend and other services.
+ */
+
 import {
   AuthPayload,
   JWTPayload,
@@ -11,39 +18,75 @@ import { extractJWTFromRequest, generateJWT, validateJWT } from './auth.js';
 import { CanvasHistoryManager } from './canvas-history.js';
 import { assignUserColor } from './color-assignment.js';
 
+/**
+ * Context object passed to every resolver.
+ */
 interface Context {
+  /** Manager for PostgreSQL interactions. */
   db: DatabaseManager;
+  /** Manager for reconstructing canvas history. */
   canvasHistoryManager: CanvasHistoryManager;
+  /** The incoming Express request object. */
   req: {
     headers: Record<string, string | string[] | undefined>;
   };
 }
 
+/**
+ * Input arguments for the createRoom mutation.
+ */
 interface CreateRoomInput {
+  /** Optional human-readable name for the room. */
   name?: string;
+  /** Maximum number of allowed participants. */
   capacity?: number;
 }
 
+/**
+ * Input arguments for the joinRoom mutation.
+ */
 interface JoinRoomInput {
+  /** The 6-character room access code. */
   code: string;
+  /** The user's chosen display name. */
   displayName: string;
 }
 
+/**
+ * Input arguments for the getCanvasHistory query.
+ */
 interface CanvasHistoryInput {
+  /** Target room UUID. */
   roomId: string;
+  /** Spatial chunks to retrieve (e.g. ["0:0"]). */
   chunks: string[];
+  /** Optional pagination cursor. */
   cursor?: string;
+  /** Maximum number of events to return. */
   limit?: number;
 }
 
+/**
+ * A paginated page of stroke events.
+ */
 interface CanvasHistoryPage {
+  /** The list of events in this page. */
   events: StrokeEvent[];
+  /** Cursor for the next page. */
   cursor?: string;
+  /** True if more results are available. */
   hasMore: boolean;
 }
 
+/**
+ * The core GraphQL resolver map.
+ */
 export const resolvers = {
   Query: {
+    /**
+     * Retrieves the drawing history for a specific room and set of spatial chunks.
+     * Requires a valid JWT for the target room.
+     */
     async getCanvasHistory(
       _: unknown,
       { input }: { input: CanvasHistoryInput },
@@ -99,6 +142,10 @@ export const resolvers = {
       }
     },
 
+    /**
+     * Retrieves metadata for a specific room.
+     * Used for initial room state loading in the UI.
+     */
     async getRoomInfo(
       _: unknown,
       { roomId }: { roomId: string },
@@ -123,7 +170,6 @@ export const resolvers = {
       }
 
       try {
-        // For now, we'll need to query by room ID - we may need to add this method to DatabaseManager
         const result = await db.query<{
           id: string;
           code: string;
@@ -158,6 +204,9 @@ export const resolvers = {
       }
     },
 
+    /**
+     * Simple health check to verify database connectivity.
+     */
     async healthCheck(
       _: unknown,
       __: unknown,
@@ -173,6 +222,10 @@ export const resolvers = {
   },
 
   Mutation: {
+    /**
+     * Creates a new collaborative drawing room and returns an auth token for the creator.
+     * Automatically assigns a unique room code and a starting color for the creator.
+     */
     async createRoom(
       _: unknown,
       { input }: { input: CreateRoomInput },
@@ -252,6 +305,10 @@ export const resolvers = {
       }
     },
 
+    /**
+     * Authenticates a user into an existing room using an access code.
+     * Assigns a unique color and returns a JWT for subsequent service calls.
+     */
     async joinRoom(
       _: unknown,
       { input }: { input: JoinRoomInput },
@@ -325,7 +382,7 @@ export const resolvers = {
     },
   },
 
-  // Type resolvers for proper date formatting
+  // Type resolvers for proper date and structural formatting
   User: {
     joinedAt: (user: User) => user.joinedAt.toISOString(),
     leftAt: (user: User) => user.leftAt?.toISOString(),

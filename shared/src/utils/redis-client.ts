@@ -1,27 +1,35 @@
-// Redis client utility for Coffee & Canvas
-// Provides connection management and standardized operations
+/**
+ * Redis client utility for the Coffee & Canvas ecosystem.
+ * This class manages separate Redis connections for general operations,
+ * publishing, and subscribing, providing a high-level API for real-time state.
+ */
 
 import Redis from 'ioredis';
 import { Point2D, StrokeData, User } from '../types/index.js';
 import { RedisUtils } from './redis-utils.js';
 
+/**
+ * High-level wrapper for Redis operations, including Pub/Sub and caching.
+ */
 export class RedisClient {
   private client: Redis;
   private subscriber: Redis;
   private publisher: Redis;
 
-  // Tracks per-channel message handlers so they can be removed on unsubscribe
+  /** Tracks per-channel message handlers to enable clean unsubscription. */
   private channelHandlers: Map<
     string,
     (channel: string, message: string) => void
   > = new Map();
 
+  /**
+   * Initializes the Redis clients with retry strategies.
+   * @param redisUrl - Connection string for the Redis instance.
+   */
   constructor(redisUrl: string) {
     const commonOptions = {
-      // Remove retryDelayOnFailover (it doesn't exist)
       maxRetriesPerRequest: 3,
       lazyConnect: true,
-      // If you want custom delay logic, use this instead:
       retryStrategy(times: number) {
         const delay = Math.min(times * 50, 2000);
         return delay;
@@ -48,7 +56,7 @@ export class RedisClient {
   }
 
   /**
-   * Connect to Redis
+   * Establishes all three types of Redis connections.
    */
   async connect(): Promise<void> {
     await Promise.all([
@@ -59,7 +67,7 @@ export class RedisClient {
   }
 
   /**
-   * Disconnect from Redis
+   * Gracefully shuts down all active Redis connections.
    */
   async disconnect(): Promise<void> {
     await Promise.all([
@@ -74,8 +82,9 @@ export class RedisClient {
   // ============================================================================
 
   /**
-   * Cache active stroke with TTL.
-   * strokeId is required and must be present in strokeData.
+   * Caches metadata for an active stroke with a limited TTL.
+   * @param roomId - Room where the stroke is occurring.
+   * @param strokeData - Partial stroke metadata (must include strokeId).
    */
   async cacheActiveStroke(
     roomId: string,
@@ -98,7 +107,10 @@ export class RedisClient {
   }
 
   /**
-   * Get active stroke from cache
+   * Retrieves an active stroke's metadata from the cache.
+   * @param roomId - Target room.
+   * @param strokeId - Unique stroke identifier.
+   * @returns Partial StrokeData or null if not found.
    */
   async getActiveStroke(
     roomId: string,
@@ -115,7 +127,10 @@ export class RedisClient {
   }
 
   /**
-   * Update active stroke points
+   * Updates the point buffer for an active stroke in Redis.
+   * @param roomId - Target room.
+   * @param strokeId - Unique stroke identifier.
+   * @param points - New points to store.
    */
   async updateActiveStrokePoints(
     roomId: string,
@@ -133,7 +148,8 @@ export class RedisClient {
   }
 
   /**
-   * Remove active stroke from cache
+   * Explicitly removes a stroke from the active cache.
+   * Typically called when a stroke is finalized and persisted to DB.
    */
   async removeActiveStroke(roomId: string, strokeId: string): Promise<void> {
     const key = RedisUtils.getActiveStrokeKey(roomId, strokeId);
@@ -141,8 +157,8 @@ export class RedisClient {
   }
 
   /**
-   * Scan Redis for keys matching a pattern using the incremental SCAN command,
-   * avoiding the blocking O(N) KEYS command.
+   * Scans Redis for keys matching a pattern using incremental SCAN.
+   * @param pattern - Redis pattern (e.g. "room:*:stroke:*").
    */
   private async scanKeysByPattern(pattern: string): Promise<string[]> {
     const stream = this.client.scanStream({ match: pattern });
@@ -166,7 +182,9 @@ export class RedisClient {
   }
 
   /**
-   * Get all active strokes in room
+   * Retrieves all currently active strokes in a room.
+   * Used for initializing the canvas state for new joiners.
+   * @param roomId - Target room UUID.
    */
   async getActiveStrokesInRoom(roomId: string): Promise<Partial<StrokeData>[]> {
     const pattern = RedisUtils.getActiveStrokeKey(roomId, '*');
@@ -204,7 +222,11 @@ export class RedisClient {
   // ============================================================================
 
   /**
-   * Update user presence in room
+   * Updates user presence metadata in a room.
+   * Presence data has a short TTL for automatic cleanup of zombie sessions.
+   * @param roomId - Target room UUID.
+   * @param userId - Unique user ID.
+   * @param user - User metadata (display name, color, etc).
    */
   async updateUserPresence(
     roomId: string,
@@ -222,7 +244,7 @@ export class RedisClient {
   }
 
   /**
-   * Remove user from room presence
+   * Explicitly removes a user from the room's presence set.
    */
   async removeUserPresence(roomId: string, userId: string): Promise<void> {
     const key = RedisUtils.getRoomPresenceKey(roomId);
@@ -230,7 +252,8 @@ export class RedisClient {
   }
 
   /**
-   * Get all active users in room
+   * Returns a map of all active users and their metadata in a room.
+   * @param roomId - Target room UUID.
    */
   async getRoomPresence(
     roomId: string
@@ -257,7 +280,9 @@ export class RedisClient {
   // ============================================================================
 
   /**
-   * Cache coffee pour event
+   * Caches the state of a coffee pour event.
+   * @param roomId - Target room.
+   * @param pourData - Event metadata for the pour.
    */
   async cachePourEvent(
     roomId: string,
@@ -280,7 +305,7 @@ export class RedisClient {
   }
 
   /**
-   * Get pour event from cache
+   * Retrieves a pour event's state.
    */
   async getPourEvent(
     roomId: string,
@@ -297,7 +322,7 @@ export class RedisClient {
   }
 
   /**
-   * Update pour event status
+   * Updates the simulation status of a specific pour event.
    */
   async updatePourEventStatus(
     roomId: string,
@@ -313,7 +338,8 @@ export class RedisClient {
   // ============================================================================
 
   /**
-   * Check and increment rate limit for strokes
+   * Enforces a rate limit for stroke frequency per user.
+   * @returns true if under limit, false if restricted.
    */
   async checkStrokeRateLimit(userId: string): Promise<boolean> {
     const key = RedisUtils.getRateLimitKey(userId, 'stroke');
@@ -327,7 +353,8 @@ export class RedisClient {
   }
 
   /**
-   * Check and set rate limit for coffee pours
+   * Enforces a rate limit for physics (coffee pour) events.
+   * @returns true if allowed, false if restricted.
    */
   async checkPourRateLimit(userId: string): Promise<boolean> {
     const key = RedisUtils.getRateLimitKey(userId, 'pour');
@@ -346,7 +373,10 @@ export class RedisClient {
   // ============================================================================
 
   /**
-   * Publish event to room channel
+   * Publishes an event to a room-specific channel for cross-server communication.
+   * @param roomId - Target room.
+   * @param eventType - Event identifier (e.g. "stroke_begin").
+   * @param data - Event payload.
    */
   async publishToRoom(
     roomId: string,
@@ -360,8 +390,10 @@ export class RedisClient {
   }
 
   /**
-   * Subscribe to room events.
-   * Manages a single message handler per channel to prevent handler accumulation.
+   * Subscribes to events on a room-specific channel.
+   * Handles automatic parsing of event payloads.
+   * @param roomId - Target room.
+   * @param callback - Function invoked on each received event.
    */
   async subscribeToRoom(
     roomId: string,
@@ -389,7 +421,7 @@ export class RedisClient {
   }
 
   /**
-   * Unsubscribe from room events
+   * Completely unsubscribes from a room channel and cleans up handlers.
    */
   async unsubscribeFromRoom(roomId: string): Promise<void> {
     const channel = RedisUtils.getRoomEventChannel(roomId);
@@ -409,7 +441,7 @@ export class RedisClient {
   // ============================================================================
 
   /**
-   * Health check - verify Redis connection
+   * Verifies the Redis connection by sending a PING command.
    */
   async healthCheck(): Promise<boolean> {
     try {
@@ -421,7 +453,7 @@ export class RedisClient {
   }
 
   /**
-   * Get Redis memory usage statistics
+   * Retrieves health and performance statistics from the Redis instance.
    */
   async getMemoryStats(): Promise<{
     usedMemory: number;
@@ -447,7 +479,7 @@ export class RedisClient {
   }
 
   /**
-   * Clear all active strokes in room (cleanup utility)
+   * Utility to force-clear all cached active strokes in a room.
    */
   async clearActiveStrokesInRoom(roomId: string): Promise<void> {
     const pattern = RedisUtils.getActiveStrokeKey(roomId, '*');

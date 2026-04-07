@@ -12,19 +12,25 @@ import (
 	"google.golang.org/grpc/status"
 )
 
-// PhysicsServer implements the CoffeePhysicsServer gRPC interface.
+// PhysicsServer implements the CoffeePhysicsServer gRPC interface defined in the protobuf.
+// It serves as the primary gateway for the Canvas Service to request simulations.
 type PhysicsServer struct {
 	pb.UnimplementedCoffeePhysicsServer
 }
 
-// ComputeSpread handles a coffee pour simulation request.
-// It validates the input, runs the fluid simulation, extracts stain polygons
-// via marching squares, and returns stroke mutations.
+// ComputeSpread handles a coffee pour simulation request via gRPC.
+// It performs strict input validation, executes the fluid simulation engine,
+// extracts visual geometry (stain polygons) using the marching squares algorithm,
+// and determines how existing strokes should be mutated by the fluid.
+//
+// @param ctx - gRPC context for request cancellation/deadlines.
+// @param req - The pour request containing origin, intensity, and nearby geometry.
+// @returns A StainResult containing polygons and mutations, or an error if validation fails.
 func (s *PhysicsServer) ComputeSpread(ctx context.Context, req *pb.PourRequest) (*pb.StainResult, error) {
 	start := time.Now()
 
 	// --- Input Validation ---
-if req.Origin == nil {
+	if req.Origin == nil {
 		return nil, status.Error(codes.InvalidArgument, "origin is required")
 	}
 	isFiniteUnitFloat := func(v float32) bool {
@@ -53,9 +59,11 @@ if req.Origin == nil {
 	simResult := RunSimulation(req)
 
 	// --- Extract Stain Polygons ---
+	// Converts the cell volumes into visual polygons for the frontend.
 	stainPolygons := ExtractStainPolygons(simResult.Grid, simResult.InitialVolume)
 
 	// --- Compute Stroke Mutations ---
+	// Maps the volume absorbed by each stroke cell back to per-stroke effects.
 	strokeMutations := ComputeStrokeMutations(req.NearbyStrokes, simResult.MutatedStrokes)
 
 	elapsed := time.Since(start)

@@ -1,49 +1,93 @@
-// Canvas History Replay Utilities
-// Implements efficient chunk-based history queries with pagination,
-// stroke event reconstruction, and canvas state serialization
+/**
+ * Canvas History Replay and Reconstruction Utilities.
+ * Provides logic for fetching stroke events from the database and
+ * reconstructing the visual state of the canvas for specific spatial chunks.
+ */
 
 import { Point2D, StrokeEvent } from '../../../shared/src/types/index.js';
 import { DatabaseManager } from '../../../shared/src/utils/database.js';
 
+/**
+ * Represents the complete reconstructed state of a canvas section.
+ */
 export interface CanvasState {
+  /** Map of stroke IDs to their reconstructed data. */
   strokes: Map<string, ReconstructedStroke>;
+  /** List of physics-based stain effects. */
   stains: StainEffect[];
+  /** Latest timestamp of any event included in this state. */
   lastUpdated: Date;
 }
 
+/**
+ * A stroke that has been reconstructed from a sequence of begin/segment/end events.
+ */
 export interface ReconstructedStroke {
+  /** Unique stroke identifier. */
   strokeId: string;
+  /** User who created the stroke. */
   userId: string;
+  /** Tool used (pen, brush, etc.). */
   tool: string;
+  /** Final color of the stroke. */
   color: string;
+  /** Thickness of the stroke. */
   width: number;
+  /** Full set of points forming the path. */
   points: Point2D[];
+  /** Initial opacity. */
   opacity: number;
+  /** When the stroke first began. */
   createdAt: Date;
+  /** Any modifications caused by subsequent coffee pours. */
   mutations?: StrokeMutation[];
 }
 
+/**
+ * A coffee stain effect on the canvas.
+ */
 export interface StainEffect {
+  /** Unique stain identifier. */
   id: string;
+  /** Polygons defining the stain's shape. */
   polygons: StainPolygon[];
+  /** Strokes affected by this specific stain. */
   mutations: StrokeMutation[];
+  /** When the pour occurred. */
   createdAt: Date;
 }
 
+/**
+ * Geometrical representation of a stain part.
+ */
 export interface StainPolygon {
+  /** Sub-part identifier. */
   id: string;
+  /** Path points for the polygon. */
   path: Point2D[];
+  /** Transparency level. */
   opacity: number;
+  /** Stain color. */
   color: string;
 }
 
+/**
+ * Modification applied to a stroke by an external effect (e.g. coffee).
+ */
 export interface StrokeMutation {
+  /** Target stroke ID. */
   strokeId: string;
+  /** Resultant color after shift. */
   colorShift: string;
+  /** Visual blur amount. */
   blurFactor: number;
+  /** Change in transparency. */
   opacityDelta: number;
 }
 
+/**
+ * Wire-compatible representation of the canvas state for API responses.
+ */
 export interface SerializedCanvasState {
   strokes: Array<{
     strokeId: string;
@@ -80,21 +124,38 @@ export interface SerializedCanvasState {
   lastUpdated: string;
 }
 
+/**
+ * Result of a chunked history query.
+ */
 export interface PaginatedCanvasHistory {
+  /** The raw stroke events retrieved. */
   events: StrokeEvent[];
+  /** ISO timestamp for the next page of results. */
   cursor?: string;
+  /** Whether more events exist beyond the current page. */
   hasMore: boolean;
+  /** Total count of events in this page. */
   totalEvents: number;
 }
 
 /**
- * Canvas History Manager - handles efficient canvas state reconstruction
+ * Manager for reconstructing canvas state from event logs.
+ * Optimizes history loading through spatial chunking and point compression.
  */
 export class CanvasHistoryManager {
+  /**
+   * Initializes the manager with a database instance.
+   */
   constructor(private db: DatabaseManager) {}
 
   /**
-   * Get canvas history with efficient chunk-based pagination
+   * Fetches paginated stroke events for a set of spatial chunks.
+   *
+   * @param roomId - Target room.
+   * @param chunkKeys - Spatial identifiers (e.g. "0:0", "1:-1").
+   * @param cursor - Pagination cursor from previous request.
+   * @param limit - Maximum number of events to return.
+   * @returns Paginated event list.
    */
   async getCanvasHistory(
     roomId: string,
@@ -145,7 +206,11 @@ export class CanvasHistoryManager {
   }
 
   /**
-   * Reconstruct complete canvas state from stroke events
+   * Assembles the chronological sequence of events into a coherent canvas state.
+   * Processes lifecycle events (begin/segment/end) and physics events (stains).
+   *
+   * @param events - Raw event sequence from the database.
+   * @returns The fully reconstructed visual state.
    */
   async reconstructCanvasState(events: StrokeEvent[]): Promise<CanvasState> {
     const canvasState: CanvasState = {
@@ -192,7 +257,8 @@ export class CanvasHistoryManager {
   }
 
   /**
-   * Serialize canvas state for efficient network transfer
+   * Converts internal CanvasState to a format optimized for network transfer.
+   * Includes point rounding and date serialization.
    */
   serializeCanvasState(canvasState: CanvasState): SerializedCanvasState {
     return {
@@ -233,7 +299,8 @@ export class CanvasHistoryManager {
   }
 
   /**
-   * Compress canvas state by removing redundant data
+   * Refines a set of events by removing intermediate segment redundancy.
+   * Useful for periodic database maintenance or high-density history requests.
    */
   compressCanvasState(events: StrokeEvent[]): StrokeEvent[] {
     const compressedEvents: StrokeEvent[] = [];
@@ -314,6 +381,7 @@ export class CanvasHistoryManager {
   // PRIVATE HELPER METHODS
   // ============================================================================
 
+  /** Validates chunk key format against "X:Y" pattern. */
   private validateChunkKeys(chunkKeys: string[]): void {
     const chunkKeyRegex = /^-?\d+:-?\d+$/;
     for (const chunkKey of chunkKeys) {
@@ -323,6 +391,7 @@ export class CanvasHistoryManager {
     }
   }
 
+  /** Maps raw event stream to per-stroke ID groups. */
   private groupEventsByStroke(
     events: StrokeEvent[]
   ): Map<string, StrokeEvent[]> {
@@ -340,6 +409,9 @@ export class CanvasHistoryManager {
     return groups;
   }
 
+  /**
+   * Logic for building a ReconstructedStroke from multiple lifecycle events.
+   */
   private reconstructStroke(
     strokeId: string,
     events: StrokeEvent[]
@@ -389,6 +461,7 @@ export class CanvasHistoryManager {
     };
   }
 
+  /** Parses a 'stain' event into a structured effect. */
   private processStainEvent(event: StrokeEvent): StainEffect | null {
     if (!event.data || !event.data.stainPolygons) {
       return null;
@@ -410,6 +483,7 @@ export class CanvasHistoryManager {
     };
   }
 
+  /** Updates current stroke state with mutations from a stain event. */
   private applyStainMutations(
     strokes: Map<string, ReconstructedStroke>,
     mutations: StrokeMutation[]
@@ -425,6 +499,7 @@ export class CanvasHistoryManager {
     }
   }
 
+  /** Rounds coordinates to 2 decimal places to minimize payload size. */
   private compressPoints(points: Point2D[]): Point2D[] {
     return points.map(point => ({
       x: Math.round(point.x * 100) / 100, // 2 decimal places

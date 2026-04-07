@@ -1,65 +1,90 @@
-// Redis utility functions for Coffee & Canvas
-// Provides standardized Redis operations with TTL policies
+/**
+ * Redis utility functions for the Coffee & Canvas application.
+ * Provides standardized key generation, TTL policies, and serialization
+ * logic for real-time state management and coordination.
+ */
 
 import { Point2D, StrokeData, User } from '../types/index.js';
 
+/**
+ * Static utility class for Redis-related operations.
+ * Centralizes key naming conventions and serialization formats.
+ */
 export class RedisUtils {
   /**
-   * Generate Redis key for active stroke caching
+   * Generates a Redis key for caching an active, in-progress stroke.
+   * @param roomId - The room where the stroke is occurring.
+   * @param strokeId - Unique stroke identifier.
    */
   static getActiveStrokeKey(roomId: string, strokeId: string): string {
     return `stroke:active:${roomId}:${strokeId}`;
   }
 
   /**
-   * Generate Redis key for room presence tracking
+   * Generates a Redis key for tracking user presence in a room.
+   * @param roomId - The target room ID.
    */
   static getRoomPresenceKey(roomId: string): string {
     return `room:presence:${roomId}`;
   }
 
   /**
-   * Generate Redis channel for room events
+   * Generates a Redis Pub/Sub channel name for room-specific events.
+   * @param roomId - The target room ID.
    */
   static getRoomEventChannel(roomId: string): string {
     return `room:${roomId}:events`;
   }
 
   /**
-   * Generate Redis key for coffee pour coordination
+   * Generates a Redis key for coordinating a coffee pour event.
+   * Used to prevent race conditions during physics simulations.
+   * @param roomId - The target room ID.
+   * @param pourId - Unique pour identifier.
    */
   static getActivePourKey(roomId: string, pourId: string): string {
     return `pour:active:${roomId}:${pourId}`;
   }
 
   /**
-   * Generate Redis key for rate limiting
+   * Generates a Redis key for action-based rate limiting.
+   * @param userId - The user to limit.
+   * @param action - The type of action (stroke or pour).
    */
   static getRateLimitKey(userId: string, action: 'stroke' | 'pour'): string {
     return `rate:${userId}:${action}`;
   }
 
   /**
-   * TTL constants for different data types
+   * Standard Time-To-Live (TTL) constants in seconds.
    */
   static readonly TTL = {
-    ACTIVE_STROKE: 30, // 30 seconds
-    ROOM_PRESENCE: 60, // 60 seconds
-    POUR_EVENT: 10, // 10 seconds
-    RATE_LIMIT_STROKE: 1, // 1 second
-    RATE_LIMIT_POUR: 3, // 3 seconds
+    /** How long to keep a partial stroke in cache before it must be persisted to PG. */
+    ACTIVE_STROKE: 30,
+    /** Heartbeat interval for user presence. */
+    ROOM_PRESENCE: 60,
+    /** Expiration for pour coordination locks. */
+    POUR_EVENT: 10,
+    /** Short window for stroke rate limiting. */
+    RATE_LIMIT_STROKE: 1,
+    /** Longer window for physics-heavy pour events. */
+    RATE_LIMIT_POUR: 3,
   } as const;
 
   /**
-   * Rate limiting thresholds
+   * Configurable rate limiting thresholds.
    */
   static readonly RATE_LIMITS = {
+    /** Max stroke segments per second per user. */
     STROKES_PER_SECOND: 120,
+    /** Max pours per rate limit window. */
     POURS_PER_WINDOW: 1,
   } as const;
 
   /**
-   * Serialize stroke data for Redis storage
+   * Converts a StrokeData object into a Redis-friendly hash map.
+   * @param stroke - Partial stroke data to serialize.
+   * @returns Key-value pairs for HSET.
    */
   static serializeStrokeData(
     stroke: Partial<StrokeData>
@@ -78,7 +103,9 @@ export class RedisUtils {
   }
 
   /**
-   * Deserialize stroke data from Redis
+   * Reconstructs a StrokeData object from a Redis hash map.
+   * @param data - Raw string data from HGETALL.
+   * @returns Partially reconstructed StrokeData.
    */
   static deserializeStrokeData(
     data: Record<string, string>
@@ -97,7 +124,7 @@ export class RedisUtils {
   }
 
   /**
-   * Serialize user presence data
+   * Serializes user metadata for presence tracking.
    */
   static serializeUserPresence(user: User): string {
     return JSON.stringify({
@@ -108,7 +135,7 @@ export class RedisUtils {
   }
 
   /**
-   * Deserialize user presence data
+   * Parses user presence data from a Redis string.
    */
   static deserializeUserPresence(data: string): {
     displayName: string;
@@ -123,7 +150,7 @@ export class RedisUtils {
   }
 
   /**
-   * Serialize coffee pour event data
+   * Converts coffee pour metadata into a Redis hash map.
    */
   static serializePourEvent(pourData: {
     pourId: string;
@@ -143,7 +170,7 @@ export class RedisUtils {
   }
 
   /**
-   * Deserialize coffee pour event data
+   * Parses coffee pour metadata from a Redis hash map.
    */
   static deserializePourEvent(data: Record<string, string>): {
     pourId: string;
@@ -164,7 +191,7 @@ export class RedisUtils {
   }
 
   /**
-   * Create standardized event payload for pub/sub
+   * Wraps data in a typed event envelope for Pub/Sub messages.
    */
   static createEventPayload(type: string, data: unknown): string {
     return JSON.stringify({
@@ -175,7 +202,7 @@ export class RedisUtils {
   }
 
   /**
-   * Parse event payload from pub/sub
+   * Extracts data from a Pub/Sub event envelope.
    */
   static parseEventPayload(payload: string): {
     type: string;
@@ -190,7 +217,7 @@ export class RedisUtils {
   }
 
   /**
-   * Calculate spatial chunk key for stroke distribution
+   * Maps pixel coordinates to a spatial chunk key string.
    */
   static calculateChunkKey(
     x: number,
@@ -203,7 +230,7 @@ export class RedisUtils {
   }
 
   /**
-   * Get all chunk keys for a set of points
+   * Returns all unique chunk keys touched by a set of points.
    */
   static getChunkKeysForPoints(
     points: Point2D[],
@@ -219,7 +246,8 @@ export class RedisUtils {
   }
 
   /**
-   * Get chunk keys within a bounding box (for viewport queries)
+   * Finds all chunk keys within a rectangular world bounding box.
+   * Useful for loading canvas history in the current viewport.
    */
   static getChunkKeysInBounds(
     minX: number,

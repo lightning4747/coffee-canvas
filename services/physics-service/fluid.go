@@ -1,3 +1,6 @@
+// Package main provides the core physics simulation engine for the Coffee & Canvas application.
+// It implements a 2D cellular automaton for fluid dynamics, simulating the spread
+// of coffee on a canvas and its interaction with existing drawing strokes.
 package main
 
 import (
@@ -10,37 +13,43 @@ import (
 const coffeeColor = "#6F4E37"
 
 // FluidCell represents a single cell in the simulation grid.
+// It tracks the current volume of fluid, its color, and the total
+// volume absorbed by strokes occupying this cell.
 type FluidCell struct {
-	Volume   float64
-	Color    string
+	Volume   float64 // Current volume of coffee fluid in the cell
+	Color    string  // Display color of the fluid in this cell
 	Absorbed float64 // total volume absorbed by strokes in this cell
 }
 
 // StrokeCell records absorption metadata for a stroke-occupied grid cell.
+// It identifies which stroke is present and how quickly it absorbs fluid.
 type StrokeCell struct {
-	StrokeID       string
-	AbsorptionRate float64
+	StrokeID       string  // Unique identifier for the drawing stroke
+	AbsorptionRate float64 // Rate at which this stroke pulls volume from cells
 }
 
 // SimGrid is the 2D simulation grid anchored to world coordinates.
+// It uses a uniform grid where each cell maps to a fixed-size area of the canvas.
 type SimGrid struct {
-	Cells          [][]FluidCell
-	StrokeCells    map[[2]int][]StrokeCell
-	SizeX, SizeY   int
-	OriginX        float64
-	OriginY        float64
-	CellSize       float64
-	TotalAbsorbed  float64
+	Cells          [][]FluidCell           // 2D array of fluid simulation units
+	StrokeCells    map[[2]int][]StrokeCell // Map of grid coordinates to overlapping strokes
+	SizeX, SizeY   int                     // Dimensions of the grid in cells
+	OriginX        float64                 // World X-coordinate of the grid's top-left corner
+	OriginY        float64                 // World Y-coordinate of the grid's top-left corner
+	CellSize       float64                 // Width/height of a single cell in world units
+	TotalAbsorbed  float64                 // Running total of fluid volume absorbed by all strokes
 }
 
 // SimResult carries the output of a completed simulation run.
+// It includes the final grid state and a map of strokes to their absorbed volumes.
 type SimResult struct {
-	Grid           *SimGrid
-	MutatedStrokes map[string]float64 // strokeID -> total absorbed volume
-	InitialVolume  float64
+	Grid           *SimGrid           // Final state of the simulation grid
+	MutatedStrokes map[string]float64 // strokeID -> total absorbed volume during the run
+	InitialVolume  float64            // Total volume injected at the start of simulation
 }
 
 // NewSimGrid allocates a grid centered around the pour origin.
+// The grid size is dynamically calculated based on the pour intensity.
 func NewSimGrid(origin *pb.Point2D, intensity float64) *SimGrid {
 	// Grid extends radius cells in each direction; cell size is fixed at 10 world units.
 	cellSize := 10.0
@@ -90,7 +99,7 @@ func (g *SimGrid) markStrokes(strokes []*pb.StrokeSnapshot) {
 					AbsorptionRate: rate,
 				})
 			}
-			// Also mark intermediate cells between consecutive points
+			// Also mark intermediate cells between consecutive points to ensure no gaps
 			if i > 0 {
 				prev := pts[i-1]
 				g.rasterizeLine(float64(prev.X), float64(prev.Y), float64(pt.X), float64(pt.Y), stroke.StrokeId, rate)
@@ -99,7 +108,7 @@ func (g *SimGrid) markStrokes(strokes []*pb.StrokeSnapshot) {
 	}
 }
 
-// rasterizeLine uses Bresenham's algorithm to fill cells along a line segment.
+// rasterizeLine uses a simple linear interpolation to fill cells along a line segment.
 func (g *SimGrid) rasterizeLine(x0, y0, x1, y1 float64, strokeID string, rate float64) {
 	steps := int(math.Max(math.Abs(x1-x0), math.Abs(y1-y0)) / g.CellSize * 2)
 	if steps == 0 {
@@ -121,7 +130,7 @@ func (g *SimGrid) rasterizeLine(x0, y0, x1, y1 float64, strokeID string, rate fl
 }
 
 // calculateAbsorptionRate returns an absorption rate based on stroke color lightness and width.
-// Darker, thicker strokes absorb more coffee.
+// Darker, thicker strokes absorb more coffee to simulate watercolor-like behavior.
 func calculateAbsorptionRate(color string, width float64) float64 {
 	// Parse the hex color luminance (simplified: use blue channel as proxy for lightness)
 	var r, gv, b uint8
@@ -160,6 +169,7 @@ func hexByte(s string) uint8 {
 }
 
 // RunSimulation executes the cellular automaton fluid simulation and returns the result.
+// It iterates through multiple time steps, applying spread, gravity, and absorption logic.
 func RunSimulation(req *pb.PourRequest) *SimResult {
 	grid := NewSimGrid(req.Origin, float64(req.Intensity))
 	grid.markStrokes(req.NearbyStrokes)
@@ -269,6 +279,7 @@ func RunSimulation(req *pb.PourRequest) *SimResult {
 	}
 }
 
+// hasStroke checks if a specific stroke ID is already marked in a grid cell.
 func (g *SimGrid) hasStroke(key [2]int, strokeID string) bool {
 	for _, sc := range g.StrokeCells[key] {
 		if sc.StrokeID == strokeID {
@@ -278,6 +289,7 @@ func (g *SimGrid) hasStroke(key [2]int, strokeID string) bool {
 	return false
 }
 
+// clampInt constrains an integer value between min and max bounds.
 func clampInt(v, min, max int) int {
 	if v < min {
 		return min
