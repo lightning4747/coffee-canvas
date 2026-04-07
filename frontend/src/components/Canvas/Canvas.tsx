@@ -1,5 +1,6 @@
 import React, { useEffect, useRef } from 'react';
 import * as PIXI from 'pixi.js';
+import { Point2D } from '@shared/types';
 import { useCanvas } from '../../hooks/useCanvas';
 import { useViewport } from '../../hooks/useViewport';
 import { useStore } from '../../store/useStore';
@@ -30,18 +31,42 @@ export const Canvas: React.FC = () => {
     if (!canvas || !worldContainer) return;
 
     const handlePointerDown = (e: PointerEvent) => {
-      if (e.buttons !== 1 || activeTool === 'pour') return;
-
       const worldPos = screenToWorld(e.clientX, e.clientY);
-      const graphics = StrokeRenderer.createGraphics();
-      worldContainer.addChild(graphics);
 
-      activeStrokeRef.current = {
-        graphics,
-        points: [worldPos],
-      };
+      if (e.buttons === 1) {
+        if (activeTool === 'pour') {
+          // Trigger Coffee Pour (Local mock for now)
+          const g = new PIXI.Graphics();
+          worldContainer.addChild(g);
 
-      StrokeRenderer.render(graphics, [worldPos], brushSettings);
+          // Mimic a stain appearing
+          const radius = brushSettings.width * 5;
+          const points: Point2D[] = [];
+          for (let i = 0; i < 8; i++) {
+            const angle = (i / 8) * Math.PI * 2;
+            const r = radius * (0.8 + Math.random() * 0.4);
+            points.push({
+              x: worldPos.x + Math.cos(angle) * r,
+              y: worldPos.y + Math.sin(angle) * r,
+            });
+          }
+
+          import('./renderers/StainRenderer').then(({ StainRenderer }) => {
+            StainRenderer.animateStain(g, points, '#4c3327', 0.6);
+          });
+          return;
+        }
+
+        const graphics = StrokeRenderer.createGraphics();
+        worldContainer.addChild(graphics);
+
+        activeStrokeRef.current = {
+          graphics,
+          points: [worldPos],
+        };
+
+        StrokeRenderer.render(graphics, [worldPos], brushSettings);
+      }
     };
 
     const handlePointerMove = (e: PointerEvent) => {

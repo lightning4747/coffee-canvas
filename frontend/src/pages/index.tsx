@@ -1,9 +1,9 @@
-import dynamic from 'next/dynamic';
 import React from 'react';
-import { Toolbar } from '../components/UI/Toolbar';
+import dynamic from 'next/dynamic';
+import { Toolbar } from '@/components/UI/Toolbar';
 
 // Use dynamic import for Canvas to avoid SSR issues with PixiJS
-const Canvas = dynamic(() => import('../components/Canvas/Canvas'), {
+const Canvas = dynamic(() => import('@/components/Canvas/Canvas'), {
   ssr: false,
   loading: () => (
     <div
