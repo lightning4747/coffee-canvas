@@ -11,10 +11,7 @@ export default function App({ Component, pageProps }: AppProps) {
           name="description"
           content="Collaborate in real-time on an infinite digital canvas with physics-based fluid effects."
         />
-        <meta
-          name="viewport"
-          content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=0"
-        />
+        <meta name="viewport" content="width=device-width, initial-scale=1" />
       </Head>
       <Component {...pageProps} />
     </>
