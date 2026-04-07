@@ -30,9 +30,6 @@ export const useCanvas = () => {
     const world = new PIXI.Container();
     app.stage.addChild(world);
 
-    // Initial positioning: center the world
-    world.position.set(app.screen.width / 2, app.screen.height / 2);
-
     // Attach to DOM
     canvasRef.current.appendChild(app.view as unknown as HTMLCanvasElement);
 
