@@ -15,7 +15,15 @@ jobs:
 
     strategy:
       matrix:
-        service: [canvas-service, room-service, physics-service, frontend]
+        include:
+          - service: canvas-service
+            file: ./services/canvas-service/Dockerfile
+          - service: room-service
+            file: ./services/room-service/Dockerfile
+          - service: physics-service
+            file: ./services/physics-service/Dockerfile
+          - service: frontend
+            file: ./frontend/Dockerfile
 
     steps:
       - name: Checkout code
@@ -50,7 +58,7 @@ jobs:
         uses: docker/build-push-action@v5
         with:
           context: .
-          file: ./services/${{ matrix.service }}/Dockerfile
+          file: ${{ matrix.file }}
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
