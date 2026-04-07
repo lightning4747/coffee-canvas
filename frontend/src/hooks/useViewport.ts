@@ -11,6 +11,7 @@ export const useViewport = (
   const handleWheel = useCallback(
     (e: WheelEvent) => {
       if (!pixiApp || !worldContainer) return;
+      e.preventDefault();
 
       const zoomSpeed = 0.001;
       const delta = -e.deltaY * zoomSpeed;
