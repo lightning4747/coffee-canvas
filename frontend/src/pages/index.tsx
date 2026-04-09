@@ -103,9 +103,7 @@ export default function Home() {
             color: 'rgba(255,255,255,0.4)',
             pointerEvents: 'none',
           }}
-        >
-          Powered by PixiJS & Go Physics | [Phase 7 Execution]
-        </footer>
+        ></footer>
       </div>
     </main>
   );
