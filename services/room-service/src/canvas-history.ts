@@ -4,8 +4,8 @@
  * reconstructing the visual state of the canvas for specific spatial chunks.
  */
 
-import { Point2D, StrokeEvent } from '../../../shared/src/types/index';
-import { DatabaseManager } from '../../../shared/src/utils/database';
+import { Point2D, StrokeEvent } from '@coffee-canvas/shared';
+import { DatabaseManager } from '@coffee-canvas/shared';
 
 /**
  * Represents the complete reconstructed state of a canvas section.

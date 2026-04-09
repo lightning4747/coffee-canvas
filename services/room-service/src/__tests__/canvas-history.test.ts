@@ -1,5 +1,5 @@
-import { Point2D, StrokeEvent } from '../../../../shared/src/types/index';
-import { DatabaseManager } from '../../../../shared/src/utils/database';
+import { Point2D, StrokeEvent } from '@coffee-canvas/shared';
+import { DatabaseManager } from '@coffee-canvas/shared';
 import {
   CanvasHistoryManager,
   CanvasState,
@@ -7,7 +7,7 @@ import {
 } from '../canvas-history';
 
 // Mock the database manager
-jest.mock('../../../../shared/src/utils/database');
+jest.mock('@coffee-canvas/shared');
 
 describe('Canvas History Manager', () => {
   let canvasHistoryManager: CanvasHistoryManager;

@@ -58,7 +58,9 @@ jest.mock('pixi.js', () => ({
 }));
 
 describe('Task 8.5: Real-time Communication Integration', () => {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   let mockSocket: any;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   let mockWorldContainer: any;
   let mockEmitCursorMove: jest.Mock;
 
@@ -105,12 +107,15 @@ describe('Task 8.5: Real-time Communication Integration', () => {
     render(<Canvas />);
 
     // Get the stroke_begin handler
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const onCall = mockSocket.on.mock.calls.find(
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       (call: any) => call[0] === 'stroke_begin'
     );
     const handleStrokeBegin = onCall[1];
 
     const segmentCall = mockSocket.on.mock.calls.find(
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       (call: any) => call[0] === 'stroke_segment'
     );
     const handleStrokeSegment = segmentCall[1];
@@ -158,6 +163,7 @@ describe('Task 8.5: Real-time Communication Integration', () => {
 
     // 1. Verify remote cursor rendering
     const cursorMoveCall = mockSocket.on.mock.calls.find(
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       (call: any) => call[0] === 'cursor_move'
     );
     const handleRemoteCursorMove = cursorMoveCall[1];
@@ -172,8 +178,8 @@ describe('Task 8.5: Real-time Communication Integration', () => {
       });
     });
 
-    // eslint-disable-next-line @typescript-eslint/no-var-requires
     const CursorRendererMock =
+      // eslint-disable-next-line @typescript-eslint/no-var-requires
       require('../components/Canvas/renderers/CursorRenderer').CursorRenderer;
     expect(CursorRendererMock.createCursor).toHaveBeenCalledWith(
       'Alice',
@@ -184,7 +190,11 @@ describe('Task 8.5: Real-time Communication Integration', () => {
     // 2. Verify local cursor emission
     // Simulate window pointermove
     act(() => {
-      const event = new PointerEvent('pointermove', {
+      const event = new Event('pointermove', {
+        bubbles: true,
+        cancelable: true,
+      });
+      Object.assign(event, {
         clientX: 100,
         clientY: 100,
       });
