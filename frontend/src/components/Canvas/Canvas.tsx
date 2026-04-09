@@ -1,21 +1,21 @@
-import React, { useEffect, useRef, useState } from 'react';
+import {
+  CursorPositionPayload,
+  Point2D,
+  StainResult,
+  StrokeBeginPayload,
+  StrokeEndPayload,
+  StrokeSegmentPayload,
+} from '@shared/types';
+import { generateId } from '@shared/utils';
 import * as PIXI from 'pixi.js';
-import { Point2D } from '@shared/types';
+import React, { useEffect, useRef, useState } from 'react';
 import { useCanvas } from '../../hooks/useCanvas';
 import { useViewport } from '../../hooks/useViewport';
-import { useStore } from '../../store/useStore';
-import { StrokeRenderer } from './renderers/StrokeRenderer';
 import { useSocket } from '../../store/SocketContext';
-import { generateId } from '@shared/utils';
-import {
-  StrokeBeginPayload,
-  StrokeSegmentPayload,
-  StrokeEndPayload,
-  StainResult,
-  CursorPositionPayload,
-} from '@shared/types';
-import { StainRenderer } from './renderers/StainRenderer';
+import { useStore } from '../../store/useStore';
 import { CursorRenderer } from './renderers/CursorRenderer';
+import { StainRenderer } from './renderers/StainRenderer';
+import { StrokeRenderer } from './renderers/StrokeRenderer';
 
 export const Canvas: React.FC = () => {
   // 1. Context & Infrastructure
@@ -299,6 +299,10 @@ export const Canvas: React.FC = () => {
     activeTool,
     brushSettings,
     emitCursorMove,
+    emitStrokeBegin,
+    emitStrokeSegment,
+    emitStrokeEnd,
+    emitCoffeePour,
   ]);
 
   // 5. Cleanup Inactive Cursors
