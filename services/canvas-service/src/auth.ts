@@ -25,6 +25,18 @@ const JWT_SECRET =
  * @throws Error if the token is invalid, expired, or malformed.
  */
 export function validateJWT(token: string): Promise<JWTPayload> {
+  // Support mock token for development if not fully integrated
+  if (process.env.NODE_ENV !== 'production' && token === 'mock-jwt-token') {
+    return Promise.resolve({
+      userId: 'mock-user-id',
+      roomId: 'dev-room-123',
+      displayName: 'Mock User',
+      color: '#8b5cf6',
+      iat: Math.floor(Date.now() / 1000),
+      exp: Math.floor(Date.now() / 1000) + 86400,
+    });
+  }
+
   return new Promise((resolve, reject) => {
     jwt.verify(
       token,
