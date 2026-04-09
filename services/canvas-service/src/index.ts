@@ -21,7 +21,7 @@ import {
   StrokeEvent,
   StrokeSegmentPayload,
   CursorPositionPayload,
-} from '../../../shared/src';
+} from '@coffee-canvas/shared';
 import { validateJWT } from './auth';
 import { physicsClient, PhysicsClient } from './physics-client';
 
