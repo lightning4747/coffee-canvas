@@ -118,6 +118,13 @@ export const Canvas: React.FC = () => {
     };
 
     const handleRemoteStrokeEnd = (payload: StrokeEndPayload) => {
+      const stroke = remoteStrokesRef.current.get(payload.strokeId);
+      if (stroke) {
+        if (stroke.graphics.parent) {
+          stroke.graphics.parent.removeChild(stroke.graphics);
+        }
+        stroke.graphics.destroy();
+      }
       remoteStrokesRef.current.delete(payload.strokeId);
     };
 
