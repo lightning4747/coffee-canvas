@@ -5,8 +5,8 @@
  */
 
 import Redis from 'ioredis';
-import { Point2D, StrokeData, User } from '../types/index.js';
-import { RedisUtils } from './redis-utils.js';
+import { Point2D, StrokeData, User } from '../types/index';
+import { RedisUtils } from './redis-utils';
 
 /**
  * High-level wrapper for Redis operations, including Pub/Sub and caching.

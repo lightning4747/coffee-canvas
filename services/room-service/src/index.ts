@@ -3,10 +3,10 @@ import cors from 'cors';
 import express from 'express';
 import helmet from 'helmet';
 import { RateLimiterMemory } from 'rate-limiter-flexible';
-import { DatabaseManager } from '../../../shared/src/utils/database.js';
-import { CanvasHistoryManager } from './canvas-history.js';
-import { resolvers } from './resolvers.js';
-import { typeDefs } from './schema.js';
+import { DatabaseManager } from '../../../shared/src';
+import { CanvasHistoryManager } from './canvas-history';
+import { resolvers } from './resolvers';
+import { typeDefs } from './schema';
 
 const app = express();
 const PORT = process.env.PORT || 3002;

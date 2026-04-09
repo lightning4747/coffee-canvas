@@ -5,7 +5,7 @@
  */
 
 import { Pool, PoolClient, QueryResult, QueryResultRow } from 'pg';
-import { Room, StrokeEvent, StrokeEventData, User } from '../types/index.js';
+import { Room, StrokeEvent, StrokeEventData, User } from '../types/index';
 
 /**
  * Internal interface representing a row in the stroke_events table.

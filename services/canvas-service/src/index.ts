@@ -4,22 +4,23 @@
  * and coordinates physics simulations via the Physics Service.
  */
 
-import {
-  calculateChunkKey,
-  CoffeePourPayload,
-  DatabaseManager,
-  JWTPayload,
-  StainResult,
-  StrokeBeginPayload,
-  StrokeEndPayload,
-  StrokeEvent,
-  StrokeSegmentPayload,
-} from '@coffee-canvas/shared';
 import express from 'express';
 import { createServer, Server as HttpServer } from 'http';
 import { createClient } from 'redis';
 import { Server } from 'socket.io';
 import { createAdapter } from 'socket.io-redis';
+import {
+  calculateChunkKey,
+  CoffeePourPayload,
+  DatabaseManager,
+  JWTPayload,
+  Point2D,
+  StainResult,
+  StrokeBeginPayload,
+  StrokeEndPayload,
+  StrokeEvent,
+  StrokeSegmentPayload,
+} from '../../../shared/src';
 import { validateJWT } from './auth';
 import { physicsClient, PhysicsClient } from './physics-client';
 
@@ -290,7 +291,9 @@ export async function initializeCanvasService(
 
         // Store points in Redis list (as JSON strings)
         if (payload.points && payload.points.length > 0) {
-          const serializedPoints = payload.points.map(p => JSON.stringify(p));
+          const serializedPoints = payload.points.map((p: Point2D) =>
+            JSON.stringify(p)
+          );
           await redisClient.rPush(pointsKey, serializedPoints);
           await redisClient.expire(pointsKey, 3600);
         }

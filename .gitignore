@@ -57,4 +57,7 @@ coverage/
 *.tsbuildinfo
 
 #agent
-.agent/
+.agent/logs*
+*.txt
+ISSUE.md
+container_index.ts

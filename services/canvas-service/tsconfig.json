@@ -6,7 +6,8 @@
     "baseUrl": "./src",
     "composite": true,
     "paths": {
-      "@shared/*": ["../../shared/src/*"]
+      "@coffee-canvas/shared": ["../../shared/src/index.ts"],
+      "@coffee-canvas/shared/*": ["../../shared/src/*"]
     }
   },
   "references": [{ "path": "../../shared" }],
