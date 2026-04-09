@@ -13,6 +13,7 @@ import {
   StrokeSegmentPayload,
   StrokeEndPayload,
   CoffeePourPayload,
+  CursorPositionPayload,
 } from '../../../shared/src/types';
 
 interface SocketContextType {
@@ -29,6 +30,12 @@ interface SocketContextType {
   ) => void;
   emitCoffeePour: (
     payload: Omit<CoffeePourPayload, 'userId' | 'roomId' | 'timestamp'>
+  ) => void;
+  emitCursorMove: (
+    payload: Omit<
+      CursorPositionPayload,
+      'userId' | 'roomId' | 'userName' | 'userColor' | 'timestamp'
+    >
   ) => void;
 }
 
@@ -47,8 +54,10 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({
 }) => {
   const [socket, setSocket] = useState<Socket | null>(null);
   const [isConnected, setIsConnected] = useState(false);
-  const { roomId, userId, setRoomInfo } = useStore();
+  const { roomId, userId, setRoomInfo, brushSettings } = useStore();
   const pendingEventsRef = useRef<{ event: string; payload: any }[]>([]);
+  const lastCursorEmitRef = useRef<number>(0);
+  const CURSOR_THROTTLE_MS = 50;
 
   // For Phase 8 integration, we mock room/user info if not present
   useEffect(() => {
@@ -202,6 +211,34 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({
     [socket, isConnected, roomId, userId]
   );
 
+  const emitCursorMove = useCallback(
+    (
+      payload: Omit<
+        CursorPositionPayload,
+        'userId' | 'roomId' | 'userName' | 'userColor' | 'timestamp'
+      >
+    ) => {
+      if (!roomId || !userId || !socket || !isConnected) return;
+
+      const now = Date.now();
+      if (now - lastCursorEmitRef.current < CURSOR_THROTTLE_MS) return;
+
+      lastCursorEmitRef.current = now;
+
+      const fullPayload: CursorPositionPayload = {
+        ...payload,
+        roomId,
+        userId,
+        userName: 'You', // This will be overwritten by server anyway, but helpful for local
+        userColor: brushSettings.color,
+        timestamp: now,
+      };
+
+      socket.emit('cursor_move', fullPayload);
+    },
+    [socket, isConnected, roomId, userId, brushSettings.color]
+  );
+
   return (
     <SocketContext.Provider
       value={{
@@ -211,6 +248,7 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({
         emitStrokeSegment,
         emitStrokeEnd,
         emitCoffeePour,
+        emitCursorMove,
       }}
     >
       {children}

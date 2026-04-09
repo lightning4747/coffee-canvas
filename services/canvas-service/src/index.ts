@@ -20,6 +20,7 @@ import {
   StrokeEndPayload,
   StrokeEvent,
   StrokeSegmentPayload,
+  CursorPositionPayload,
 } from '../../../shared/src';
 import { validateJWT } from './auth';
 import { physicsClient, PhysicsClient } from './physics-client';
@@ -55,6 +56,8 @@ interface ServerToClientEvents {
   stroke_end: (payload: StrokeEndPayload) => void;
   /** Relays the result of a physics simulation. */
   stain_result: (payload: StainResult) => void;
+  /** Relays cursor positions. */
+  cursor_move: (payload: CursorPositionPayload) => void;
   /** Sends generic error messages. */
   error: (payload: { message: string }) => void;
 }
@@ -69,6 +72,8 @@ interface ClientToServerEvents {
   stroke_segment: (payload: StrokeSegmentPayload) => void;
   /** Signal to complete a drawing stroke. */
   stroke_end: (payload: StrokeEndPayload) => void;
+  /** Signal to update cursor position. */
+  cursor_move: (payload: CursorPositionPayload) => void;
   /** Signal to trigger a physics coffee pour. */
   coffee_pour: (payload: CoffeePourPayload) => void;
 }
@@ -303,6 +308,22 @@ export async function initializeCanvasService(
       } catch (error) {
         console.error(`Error in stroke_segment for user ${userId}:`, error);
       }
+    });
+
+    /**
+     * Broadcast cursor movement to other participants.
+     */
+    socket.on('cursor_move', (payload: CursorPositionPayload) => {
+      // Basic room validation
+      if (payload.roomId !== roomId) return;
+
+      // Ensure user info matches the socket context
+      payload.userId = userId;
+      payload.userName = displayName;
+      payload.userColor = user.color || '#cccccc';
+
+      // Ephemeral broadcast (no Redis/DB caching needed for cursors)
+      socket.to(roomId).emit('cursor_move', payload);
     });
 
     /**

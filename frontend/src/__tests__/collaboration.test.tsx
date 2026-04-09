@@ -12,10 +12,24 @@ jest.mock('../hooks/useCanvas');
 jest.mock('../store/SocketContext');
 jest.mock('../store/useStore');
 jest.mock('../components/Canvas/renderers/StrokeRenderer');
+jest.mock('../hooks/useViewport', () => {
+  const mockScreenToWorld = jest.fn().mockImplementation((x, y) => ({ x, y }));
+  return {
+    useViewport: jest.fn().mockImplementation(() => ({
+      screenToWorld: mockScreenToWorld,
+    })),
+  };
+});
 jest.mock('@shared/utils', () => ({
   generateId: (prefix: string) => `${prefix}_mock_id`,
 }));
 jest.mock('../components/Canvas/renderers/StainRenderer');
+jest.mock('../components/Canvas/renderers/CursorRenderer', () => ({
+  CursorRenderer: {
+    createCursor: jest.fn().mockImplementation(() => new PIXI.Container()),
+    updatePosition: jest.fn(),
+  },
+}));
 jest.mock('pixi.js', () => ({
   Application: jest.fn().mockImplementation(() => ({
     stage: { addChild: jest.fn() },
@@ -46,9 +60,11 @@ jest.mock('pixi.js', () => ({
 describe('Task 8.5: Real-time Communication Integration', () => {
   let mockSocket: any;
   let mockWorldContainer: any;
+  let mockEmitCursorMove: jest.Mock;
 
   beforeEach(() => {
     jest.clearAllMocks();
+    mockEmitCursorMove = jest.fn();
 
     mockSocket = {
       on: jest.fn(),
@@ -71,6 +87,7 @@ describe('Task 8.5: Real-time Communication Integration', () => {
       emitStrokeSegment: jest.fn(),
       emitStrokeEnd: jest.fn(),
       emitCoffeePour: jest.fn(),
+      emitCursorMove: mockEmitCursorMove,
     });
 
     (useStore as unknown as jest.Mock).mockReturnValue({
@@ -134,5 +151,46 @@ describe('Task 8.5: Real-time Communication Integration', () => {
       [{ x: 10, y: 10 }],
       expect.objectContaining({ color: '#ff0000', width: 5 })
     );
+  });
+
+  it('should render remote cursors and emit local cursor movement', () => {
+    render(<Canvas />);
+
+    // 1. Verify remote cursor rendering
+    const cursorMoveCall = mockSocket.on.mock.calls.find(
+      (call: any) => call[0] === 'cursor_move'
+    );
+    const handleRemoteCursorMove = cursorMoveCall[1];
+
+    act(() => {
+      handleRemoteCursorMove({
+        userId: 'user-3',
+        userName: 'Alice',
+        userColor: '#00ff00',
+        position: { x: 50, y: 50 },
+        timestamp: Date.now(),
+      });
+    });
+
+    // eslint-disable-next-line @typescript-eslint/no-var-requires
+    const CursorRendererMock =
+      require('../components/Canvas/renderers/CursorRenderer').CursorRenderer;
+    expect(CursorRendererMock.createCursor).toHaveBeenCalledWith(
+      'Alice',
+      '#00ff00'
+    );
+    expect(CursorRendererMock.updatePosition).toHaveBeenCalled();
+
+    // 2. Verify local cursor emission
+    // Simulate window pointermove
+    act(() => {
+      const event = new PointerEvent('pointermove', {
+        clientX: 100,
+        clientY: 100,
+      });
+      window.dispatchEvent(event);
+    });
+
+    expect(mockEmitCursorMove).toHaveBeenCalled();
   });
 });

@@ -12,8 +12,10 @@ import {
   StrokeSegmentPayload,
   StrokeEndPayload,
   StainResult,
+  CursorPositionPayload,
 } from '@shared/types';
 import { StainRenderer } from './renderers/StainRenderer';
+import { CursorRenderer } from './renderers/CursorRenderer';
 
 export const Canvas: React.FC = () => {
   // 1. Context & Infrastructure
@@ -24,9 +26,11 @@ export const Canvas: React.FC = () => {
     emitStrokeSegment,
     emitStrokeEnd,
     emitCoffeePour,
+    emitCursorMove,
     socket,
   } = useSocket();
   const [drawingLayer, setDrawingLayer] = useState<PIXI.Container | null>(null);
+  const [cursorsLayer, setCursorsLayer] = useState<PIXI.Container | null>(null);
 
   const activeStrokeRef = useRef<{
     id: string;
@@ -45,6 +49,16 @@ export const Canvas: React.FC = () => {
     >
   >(new Map());
 
+  const remoteCursorsRef = useRef<
+    Map<
+      string,
+      {
+        container: PIXI.Container;
+        lastUpdate: number;
+      }
+    >
+  >(new Map());
+
   // 2. Viewport Management
   const { screenToWorld } = useViewport(pixiApp, worldContainer);
 
@@ -56,7 +70,12 @@ export const Canvas: React.FC = () => {
     layer.name = 'drawing-layer';
     worldContainer.addChild(layer);
     setDrawingLayer(layer);
-  }, [worldContainer, drawingLayer]);
+
+    const curLayer = new PIXI.Container();
+    curLayer.name = 'cursors-layer';
+    worldContainer.addChild(curLayer);
+    setCursorsLayer(curLayer);
+  }, [worldContainer, drawingLayer, cursorsLayer]);
 
   useEffect(() => {
     if (worldContainer) {
@@ -117,18 +136,41 @@ export const Canvas: React.FC = () => {
       );
     };
 
+    const handleRemoteCursorMove = (payload: CursorPositionPayload) => {
+      // Ignore self
+      const { userId, userName, userColor, position } = payload;
+      let remoteCursor = remoteCursorsRef.current.get(userId);
+
+      if (!remoteCursor) {
+        if (!cursorsLayer) return;
+        const container = CursorRenderer.createCursor(userName, userColor);
+        cursorsLayer.addChild(container);
+        remoteCursor = { container, lastUpdate: Date.now() };
+        remoteCursorsRef.current.set(userId, remoteCursor);
+      }
+
+      remoteCursor.lastUpdate = Date.now();
+      CursorRenderer.updatePosition(
+        remoteCursor.container,
+        position.x,
+        position.y
+      );
+    };
+
     socket.on('stroke_begin', handleRemoteStrokeBegin);
     socket.on('stroke_segment', handleRemoteStrokeSegment);
     socket.on('stroke_end', handleRemoteStrokeEnd);
     socket.on('stain_result', handleStainResult);
+    socket.on('cursor_move', handleRemoteCursorMove);
 
     return () => {
       socket.off('stroke_begin', handleRemoteStrokeBegin);
       socket.off('stroke_segment', handleRemoteStrokeSegment);
       socket.off('stroke_end', handleRemoteStrokeEnd);
       socket.off('stain_result', handleStainResult);
+      socket.off('cursor_move', handleRemoteCursorMove);
     };
-  }, [socket, drawingLayer]);
+  }, [socket, drawingLayer, cursorsLayer]);
 
   // 4. User Interaction Handlers
   useEffect(() => {
@@ -227,16 +269,49 @@ export const Canvas: React.FC = () => {
       activeStrokeRef.current = null;
     };
 
+    const handleGeneralPointerMove = (e: PointerEvent) => {
+      const worldPos = screenToWorld(e.clientX, e.clientY);
+      emitCursorMove({ position: worldPos });
+    };
+
     canvas.addEventListener('pointerdown', handlePointerDown);
     window.addEventListener('pointermove', handlePointerMove);
+    window.addEventListener('pointermove', handleGeneralPointerMove);
     window.addEventListener('pointerup', handlePointerUp);
 
     return () => {
       canvas.removeEventListener('pointerdown', handlePointerDown);
       window.removeEventListener('pointermove', handlePointerMove);
+      window.removeEventListener('pointermove', handleGeneralPointerMove);
       window.removeEventListener('pointerup', handlePointerUp);
     };
-  }, [pixiApp, drawingLayer, screenToWorld, activeTool, brushSettings]);
+  }, [
+    pixiApp,
+    drawingLayer,
+    screenToWorld,
+    activeTool,
+    brushSettings,
+    emitCursorMove,
+  ]);
+
+  // 5. Cleanup Inactive Cursors
+  useEffect(() => {
+    const interval = setInterval(() => {
+      const now = Date.now();
+      remoteCursorsRef.current.forEach((data, userId) => {
+        if (now - data.lastUpdate > 5000) {
+          // 5 seconds timeout
+          if (cursorsLayer && data.container.parent) {
+            cursorsLayer.removeChild(data.container);
+            data.container.destroy({ children: true });
+          }
+          remoteCursorsRef.current.delete(userId);
+        }
+      });
+    }, 2000);
+
+    return () => clearInterval(interval);
+  }, [cursorsLayer]);
 
   return (
     <div
