@@ -4,6 +4,7 @@ import React, {
   useEffect,
   useState,
   useCallback,
+  useRef,
 } from 'react';
 import { io, Socket } from 'socket.io-client';
 import { useStore } from './useStore';
@@ -47,6 +48,7 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({
   const [socket, setSocket] = useState<Socket | null>(null);
   const [isConnected, setIsConnected] = useState(false);
   const { roomId, userId, setRoomInfo } = useStore();
+  const pendingEventsRef = useRef<{ event: string; payload: any }[]>([]);
 
   // For Phase 8 integration, we mock room/user info if not present
   useEffect(() => {
@@ -81,6 +83,17 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({
     newSocket.on('connect', () => {
       console.log('Connected to Socket.IO server');
       setIsConnected(true);
+
+      // Flush pending events
+      if (pendingEventsRef.current.length > 0) {
+        console.log(
+          `Flushing ${pendingEventsRef.current.length} buffered events`
+        );
+        pendingEventsRef.current.forEach(({ event, payload }) => {
+          newSocket.emit(event, payload);
+        });
+        pendingEventsRef.current = [];
+      }
     });
 
     newSocket.on('disconnect', () => {
@@ -101,13 +114,22 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({
 
   const emitStrokeBegin = useCallback(
     (payload: Omit<StrokeBeginPayload, 'userId' | 'roomId' | 'timestamp'>) => {
-      if (!socket || !isConnected || !roomId || !userId) return;
-      socket.emit('stroke_begin', {
+      if (!roomId || !userId) return;
+      const fullPayload = {
         ...payload,
         roomId,
         userId,
         timestamp: Date.now(),
-      });
+      };
+
+      if (!socket || !isConnected) {
+        pendingEventsRef.current.push({
+          event: 'stroke_begin',
+          payload: fullPayload,
+        });
+        return;
+      }
+      socket.emit('stroke_begin', fullPayload);
     },
     [socket, isConnected, roomId, userId]
   );
@@ -116,39 +138,66 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({
     (
       payload: Omit<StrokeSegmentPayload, 'userId' | 'roomId' | 'timestamp'>
     ) => {
-      if (!socket || !isConnected || !roomId || !userId) return;
-      socket.emit('stroke_segment', {
+      if (!roomId || !userId) return;
+      const fullPayload = {
         ...payload,
         roomId,
         userId,
         timestamp: Date.now(),
-      });
+      };
+
+      if (!socket || !isConnected) {
+        pendingEventsRef.current.push({
+          event: 'stroke_segment',
+          payload: fullPayload,
+        });
+        return;
+      }
+      socket.emit('stroke_segment', fullPayload);
     },
     [socket, isConnected, roomId, userId]
   );
 
   const emitStrokeEnd = useCallback(
     (payload: Omit<StrokeEndPayload, 'userId' | 'roomId' | 'timestamp'>) => {
-      if (!socket || !isConnected || !roomId || !userId) return;
-      socket.emit('stroke_end', {
+      if (!roomId || !userId) return;
+      const fullPayload = {
         ...payload,
         roomId,
         userId,
         timestamp: Date.now(),
-      });
+      };
+
+      if (!socket || !isConnected) {
+        pendingEventsRef.current.push({
+          event: 'stroke_end',
+          payload: fullPayload,
+        });
+        return;
+      }
+      socket.emit('stroke_end', fullPayload);
     },
     [socket, isConnected, roomId, userId]
   );
 
   const emitCoffeePour = useCallback(
     (payload: Omit<CoffeePourPayload, 'userId' | 'roomId' | 'timestamp'>) => {
-      if (!socket || !isConnected || !roomId || !userId) return;
-      socket.emit('coffee_pour', {
+      if (!roomId || !userId) return;
+      const fullPayload = {
         ...payload,
         roomId,
         userId,
         timestamp: Date.now(),
-      });
+      };
+
+      if (!socket || !isConnected) {
+        pendingEventsRef.current.push({
+          event: 'coffee_pour',
+          payload: fullPayload,
+        });
+        return;
+      }
+      socket.emit('coffee_pour', fullPayload);
     },
     [socket, isConnected, roomId, userId]
   );
