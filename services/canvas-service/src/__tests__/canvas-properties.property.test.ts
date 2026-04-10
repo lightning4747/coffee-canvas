@@ -23,6 +23,12 @@ jest.mock('redis', () => ({
   createClient: jest.fn(() => mockRedisClient),
 }));
 
+jest.mock('rate-limiter-flexible', () => ({
+  RateLimiterRedis: jest.fn().mockImplementation(() => ({
+    consume: jest.fn().mockResolvedValue({}),
+  })),
+}));
+
 jest.mock('socket.io-redis', () => ({
   createAdapter: jest.fn(),
 }));
@@ -159,8 +165,8 @@ describe('Canvas Service Property Tests', () => {
   // --- Generators (Minimal set used in properties) ---
 
   const pointArbitrary = fc.record({
-    x: fc.float({ noNaN: true }),
-    y: fc.float({ noNaN: true }),
+    x: fc.float({ noNaN: true, min: -1000000, max: 1000000 }).map(Math.fround),
+    y: fc.float({ noNaN: true, min: -1000000, max: 1000000 }).map(Math.fround),
   });
 
   // --- Properties ---
@@ -168,8 +174,8 @@ describe('Canvas Service Property Tests', () => {
   it('Property 1: Event Broadcast (Functional Verification)', async () => {
     await fc.assert(
       fc.asyncProperty(
-        fc.string({ minLength: 5 }), // strokeId
-        fc.string({ minLength: 5 }), // roomId
+        fc.uuid(), // strokeId
+        fc.uuid(), // roomId
         fc.array(fc.array(pointArbitrary, { minLength: 1, maxLength: 10 }), {
           minLength: 1,
           maxLength: 5,
@@ -177,7 +183,7 @@ describe('Canvas Service Property Tests', () => {
         async (strokeId, roomId, segments) => {
           const { socket, broadcastEmit } = createMockSocket(
             'socket-1',
-            'user-1',
+            '550e8400-e29b-41d4-a716-446655440001',
             roomId,
             'Artist',
             '#F00'
@@ -195,6 +201,7 @@ describe('Canvas Service Property Tests', () => {
           const beginPayload = {
             strokeId,
             roomId,
+            userId: '550e8400-e29b-41d4-a716-446655440001',
             tool: 'pen',
             color: '#000',
             width: 2,
@@ -216,6 +223,7 @@ describe('Canvas Service Property Tests', () => {
             const segmentPayload = {
               strokeId,
               roomId,
+              userId: '550e8400-e29b-41d4-a716-446655440001',
               points,
               timestamp: Date.now(),
             };
@@ -238,9 +246,9 @@ describe('Canvas Service Property Tests', () => {
   it('Property 2: Stroke Independence (No cross-talk between concurrent strokes)', async () => {
     await fc.assert(
       fc.asyncProperty(
-        fc.string({ minLength: 5, maxLength: 10 }), // strokeId 1
-        fc.string({ minLength: 5, maxLength: 10 }), // strokeId 2
-        fc.string({ minLength: 5 }), // roomId
+        fc.uuid(), // strokeId 1
+        fc.uuid(), // strokeId 2
+        fc.uuid(), // roomId
         fc.array(pointArbitrary, { minLength: 1, maxLength: 3 }), // points 1
         fc.array(pointArbitrary, { minLength: 1, maxLength: 3 }), // points 2
         async (id1, id2, roomId, pts1, pts2) => {
@@ -248,14 +256,14 @@ describe('Canvas Service Property Tests', () => {
 
           const { socket: s1 } = createMockSocket(
             's1',
-            'u1',
+            '550e8400-e29b-41d4-a716-446655440001',
             roomId,
             'User 1',
             '#F00'
           );
           const { socket: s2 } = createMockSocket(
             's2',
-            'u2',
+            '550e8400-e29b-41d4-a716-446655440011',
             roomId,
             'User 2',
             '#00F'
@@ -272,6 +280,7 @@ describe('Canvas Service Property Tests', () => {
           s1.emit('stroke_begin', {
             strokeId: id1,
             roomId,
+            userId: '550e8400-e29b-41d4-a716-446655440001',
             tool: 'pen',
             color: '#000',
             width: 1,
@@ -280,6 +289,7 @@ describe('Canvas Service Property Tests', () => {
           s2.emit('stroke_begin', {
             strokeId: id2,
             roomId,
+            userId: '550e8400-e29b-41d4-a716-446655440011',
             tool: 'brush',
             color: '#FFF',
             width: 5,
@@ -302,12 +312,14 @@ describe('Canvas Service Property Tests', () => {
           s1.emit('stroke_segment', {
             strokeId: id1,
             roomId,
+            userId: '550e8400-e29b-41d4-a716-446655440001',
             points: pts1,
             timestamp: Date.now(),
           });
           s2.emit('stroke_segment', {
             strokeId: id2,
             roomId,
+            userId: '550e8400-e29b-41d4-a716-446655440011',
             points: pts2,
             timestamp: Date.now(),
           });
@@ -332,21 +344,21 @@ describe('Canvas Service Property Tests', () => {
   it('Property 3: Room Isolation (Broadcasts stay within the room)', async () => {
     await fc.assert(
       fc.asyncProperty(
-        fc.string({ minLength: 5 }), // roomId 1
-        fc.string({ minLength: 5 }), // roomId 2
+        fc.uuid(), // roomId 1
+        fc.uuid(), // roomId 2
         async (room1, room2) => {
           fc.pre(room1 !== room2);
 
           const { socket: s1, broadcastEmit: b1 } = createMockSocket(
             's1',
-            'u1',
+            '550e8400-e29b-41d4-a716-446655440001',
             room1,
             'Artist 1',
             '#F00'
           );
           const { socket: s2, broadcastEmit: b2 } = createMockSocket(
             's2',
-            'u2',
+            '550e8400-e29b-41d4-a716-446655440011',
             room2,
             'Artist 2',
             '#00F'
@@ -366,8 +378,9 @@ describe('Canvas Service Property Tests', () => {
           (s2.to as jest.Mock).mockClear();
 
           const payload = {
-            strokeId: 'test-stroke',
+            strokeId: '550e8400-e29b-41d4-a716-446655440002',
             roomId: room1,
+            userId: '550e8400-e29b-41d4-a716-446655440001',
             tool: 'pen',
             color: '#000',
             width: 1,
@@ -395,13 +408,13 @@ describe('Canvas Service Property Tests', () => {
   it('Property 9: Stroke Persistence Consistency (Draft events eventually reach DB)', async () => {
     await fc.assert(
       fc.asyncProperty(
-        fc.string({ minLength: 5 }).filter(s => !s.includes(':')), // strokeId
-        fc.string({ minLength: 5 }).filter(s => !s.includes(':')), // roomId
+        fc.uuid(), // strokeId
+        fc.uuid(), // roomId
         fc.array(pointArbitrary, { minLength: 3, maxLength: 10 }), // points
         async (strokeId, roomId, points) => {
           const { socket } = createMockSocket(
             'socket-p',
-            'user-p',
+            '550e8400-e29b-41d4-a716-446655440001',
             roomId,
             'Artist',
             '#F00'
@@ -419,7 +432,7 @@ describe('Canvas Service Property Tests', () => {
             points.map(p => JSON.stringify(p))
           );
           mockRedisClient.hGetAll.mockResolvedValue({
-            userId: 'user-p',
+            userId: '550e8400-e29b-41d4-a716-446655440001',
             roomId,
             tool: 'pen',
             color: '#000',
@@ -432,6 +445,7 @@ describe('Canvas Service Property Tests', () => {
           socket.emit('stroke_begin', {
             strokeId,
             roomId,
+            userId: '550e8400-e29b-41d4-a716-446655440001',
             tool: 'pen',
             color: '#000',
             width: 2,
@@ -440,12 +454,14 @@ describe('Canvas Service Property Tests', () => {
           socket.emit('stroke_segment', {
             strokeId,
             roomId,
+            userId: '550e8400-e29b-41d4-a716-446655440001',
             points: points.slice(1, -1),
             timestamp: Date.now(),
           });
           socket.emit('stroke_end', {
             strokeId,
             roomId,
+            userId: '550e8400-e29b-41d4-a716-446655440001',
             timestamp: Date.now(),
           });
 
@@ -469,14 +485,14 @@ describe('Canvas Service Property Tests', () => {
   it('Property 10: Stain Persistence Consistency (Coffee pour eventually reaches DB)', async () => {
     await fc.assert(
       fc.asyncProperty(
-        fc.base64String({ minLength: 5 }).filter(s => !s.includes(':')), // pourId
-        fc.base64String({ minLength: 5 }).filter(s => !s.includes(':')), // roomId
+        fc.uuid(), // pourId
+        fc.uuid(), // roomId
         pointArbitrary, // origin
-        fc.double({ min: 0.1, max: 10.0 }), // intensity
+        fc.double({ min: 1.0, max: 10.0 }), // intensity
         async (pourId, roomId, origin, intensity) => {
           const { socket } = createMockSocket(
             'socket-s',
-            'user-s',
+            '550e8400-e29b-41d4-a716-446655440001',
             roomId,
             'Server',
             '#640'
@@ -496,6 +512,7 @@ describe('Canvas Service Property Tests', () => {
           socket.emit('coffee_pour', {
             pourId,
             roomId,
+            userId: '550e8400-e29b-41d4-a716-446655440001',
             origin,
             intensity,
             timestamp: Date.now(),

@@ -2,6 +2,12 @@ import { EventEmitter } from 'events';
 import { initializeCanvasService } from '../index';
 import { physicsClient } from '../physics-client';
 
+jest.mock('rate-limiter-flexible', () => ({
+  RateLimiterRedis: jest.fn().mockImplementation(() => ({
+    consume: jest.fn().mockResolvedValue({}),
+  })),
+}));
+
 // --- Mocks ---
 
 // Mock Redis
@@ -10,8 +16,8 @@ const mockRedisClient = {
   on: jest.fn(),
   hSet: jest.fn().mockResolvedValue(1),
   hGetAll: jest.fn().mockResolvedValue({
-    userId: 'user-1',
-    roomId: 'room-1',
+    userId: '550e8400-e29b-41d4-a716-446655440001',
+    roomId: '550e8400-e29b-41d4-a716-446655440000',
     tool: 'pen',
     color: '#000',
     width: '2',
@@ -19,7 +25,9 @@ const mockRedisClient = {
     status: 'active',
   }),
   sAdd: jest.fn().mockResolvedValue(1),
-  sMembers: jest.fn().mockResolvedValue(['stroke-1']),
+  sMembers: jest
+    .fn()
+    .mockResolvedValue(['550e8400-e29b-41d4-a716-446655440012']),
   sRem: jest.fn().mockResolvedValue(1),
   rPush: jest.fn().mockResolvedValue(1),
   lPush: jest.fn().mockResolvedValue(1),
@@ -46,7 +54,7 @@ interface MockSocket extends EventEmitter {
 jest.mock('../physics-client', () => ({
   physicsClient: {
     computeSpread: jest.fn().mockResolvedValue({
-      pourId: 'pour-123',
+      pourId: '550e8400-e29b-41d4-a716-446655440003',
       stainPolygons: [
         {
           id: 'stain-1',
@@ -60,6 +68,18 @@ jest.mock('../physics-client', () => ({
     }),
   },
 }));
+
+jest.mock('@coffee-canvas/shared', () => {
+  const original = jest.requireActual('@coffee-canvas/shared');
+  return {
+    ...original,
+    DatabaseManager: jest.fn().mockImplementation(() => ({
+      healthCheck: jest.fn().mockResolvedValue(true),
+      insertStrokeEvent: jest.fn().mockResolvedValue({}),
+      batchInsertStrokeEvents: jest.fn().mockResolvedValue({}),
+    })),
+  };
+});
 
 // Mock Socket.IO globally to avoid adapter issues
 jest.mock('socket.io', () => {
@@ -89,8 +109,8 @@ jest.mock('socket.io', () => {
 // Mock JWT Validation
 jest.mock('../auth', () => ({
   validateJWT: jest.fn().mockResolvedValue({
-    userId: 'user-1',
-    roomId: 'room-1',
+    userId: '550e8400-e29b-41d4-a716-446655440001',
+    roomId: '550e8400-e29b-41d4-a716-446655440000',
     displayName: 'Test User',
     color: '#F00',
   }),
@@ -125,8 +145,8 @@ describe('Physics Integration Verification', () => {
   });
 
   it('Should handle coffee_pour, call physics service, and broadcast stain_result', async () => {
-    const roomId = 'room-1';
-    const userId = 'user-1';
+    const roomId = '550e8400-e29b-41d4-a716-446655440000';
+    const userId = '550e8400-e29b-41d4-a716-446655440001';
 
     // Mock socket setup
     const socket = new EventEmitter() as MockSocket;
@@ -148,9 +168,9 @@ describe('Physics Integration Verification', () => {
     const pourPayload = {
       roomId,
       userId,
-      pourId: 'pour-123',
+      pourId: '550e8400-e29b-41d4-a716-446655440003',
       origin: { x: 100, y: 100 },
-      intensity: 10,
+      intensity: 5,
       timestamp: Date.now(),
     };
 
@@ -169,12 +189,12 @@ describe('Physics Integration Verification', () => {
     // 2. Should have called physics client with correct data
     expect(physicsClient.computeSpread).toHaveBeenCalledWith(
       roomId,
-      'pour-123',
+      '550e8400-e29b-41d4-a716-446655440003',
       pourPayload.origin,
       pourPayload.intensity,
       expect.arrayContaining([
         expect.objectContaining({
-          strokeId: 'stroke-1',
+          strokeId: '550e8400-e29b-41d4-a716-446655440012',
           points: [{ x: 10, y: 10 }],
         }),
       ])
@@ -183,7 +203,7 @@ describe('Physics Integration Verification', () => {
     // 3. Should have cached the result in Redis
     expect(mockRedisClient.lPush).toHaveBeenCalledWith(
       `canvas:room:${roomId}:stains`,
-      expect.stringContaining('"pourId":"pour-123"')
+      expect.stringContaining('"pourId":"550e8400-e29b-41d4-a716-446655440003"')
     );
     expect(mockRedisClient.expire).toHaveBeenCalledWith(
       `canvas:room:${roomId}:stains`,
@@ -197,7 +217,7 @@ describe('Physics Integration Verification', () => {
     expect(emitMock).toHaveBeenCalledWith(
       'stain_result',
       expect.objectContaining({
-        pourId: 'pour-123',
+        pourId: '550e8400-e29b-41d4-a716-446655440003',
         stainPolygons: expect.any(Array),
       })
     );

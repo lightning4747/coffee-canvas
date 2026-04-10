@@ -8,6 +8,12 @@ import {
 } from '@coffee-canvas/shared';
 import { physicsClient } from '../physics-client';
 
+jest.mock('rate-limiter-flexible', () => ({
+  RateLimiterRedis: jest.fn().mockImplementation(() => ({
+    consume: jest.fn().mockResolvedValue({}),
+  })),
+}));
+
 // Mock Dependencies
 jest.mock('redis', () => ({
   createClient: jest.fn(() => ({
@@ -15,8 +21,8 @@ jest.mock('redis', () => ({
     connect: jest.fn().mockResolvedValue(undefined),
     hSet: jest.fn().mockResolvedValue(1),
     hGetAll: jest.fn().mockResolvedValue({
-      userId: 'user-1',
-      roomId: 'room-1',
+      userId: '550e8400-e29b-41d4-a716-446655440001',
+      roomId: '550e8400-e29b-41d4-a716-446655440000',
       tool: 'pen',
       color: '#000000',
       width: '2',
@@ -79,8 +85,8 @@ jest.mock('@coffee-canvas/shared', () => {
 
 jest.mock('../auth', () => ({
   validateJWT: jest.fn().mockResolvedValue({
-    userId: 'user-1',
-    roomId: 'room-1',
+    userId: '550e8400-e29b-41d4-a716-446655440001',
+    roomId: '550e8400-e29b-41d4-a716-446655440000',
     displayName: 'Test User',
     color: '#ff0000',
   }),
@@ -137,7 +143,11 @@ describe('Persistence Integration Verification', () => {
     socket.id = 'socket-1';
     socket.handshake = { auth: { token: 'valid-token' }, headers: {} };
     socket.data = {
-      user: { userId: 'user-1', roomId: 'room-1', displayName: 'Test User' },
+      user: {
+        userId: '550e8400-e29b-41d4-a716-446655440001',
+        roomId: '550e8400-e29b-41d4-a716-446655440000',
+        displayName: 'Test User',
+      },
     };
     socket.join = jest.fn();
     socket.to = jest.fn().mockReturnValue({ emit: jest.fn() });
@@ -147,9 +157,9 @@ describe('Persistence Integration Verification', () => {
 
     // Simulate stroke_end
     socket.emit('stroke_end', {
-      roomId: 'room-1',
-      userId: 'user-1',
-      strokeId: 'stroke-1',
+      roomId: '550e8400-e29b-41d4-a716-446655440000',
+      userId: '550e8400-e29b-41d4-a716-446655440001',
+      strokeId: '550e8400-e29b-41d4-a716-446655440002',
       timestamp: Date.now(),
     });
 
@@ -175,14 +185,18 @@ describe('Persistence Integration Verification', () => {
     socket.id = 'socket-1';
     socket.handshake = { auth: { token: 'valid-token' }, headers: {} };
     socket.data = {
-      user: { userId: 'user-1', roomId: 'room-1', displayName: 'Test User' },
+      user: {
+        userId: '550e8400-e29b-41d4-a716-446655440001',
+        roomId: '550e8400-e29b-41d4-a716-446655440000',
+        displayName: 'Test User',
+      },
     };
     socket.join = jest.fn();
     socket.to = jest.fn().mockReturnValue({ emit: jest.fn() });
 
     // Mock physics client response
     (physicsClient.computeSpread as jest.Mock).mockResolvedValue({
-      pourId: 'pour-1',
+      pourId: '550e8400-e29b-41d4-a716-446655440003',
       stainPolygons: [
         {
           id: 'stain-1',
@@ -200,9 +214,9 @@ describe('Persistence Integration Verification', () => {
 
     // Simulate coffee_pour
     socket.emit('coffee_pour', {
-      roomId: 'room-1',
-      userId: 'user-1',
-      pourId: 'pour-1',
+      roomId: '550e8400-e29b-41d4-a716-446655440000',
+      userId: '550e8400-e29b-41d4-a716-446655440001',
+      pourId: '550e8400-e29b-41d4-a716-446655440003',
       origin: { x: 50, y: 50 },
       intensity: 1.0,
       timestamp: Date.now(),
@@ -215,7 +229,7 @@ describe('Persistence Integration Verification', () => {
     const event = dbManager.insertStrokeEvent.mock.calls[0][0] as StrokeEvent;
 
     expect(event.eventType).toBe('stain');
-    expect(event.strokeId).toBe('pour-1');
+    expect(event.strokeId).toBe('550e8400-e29b-41d4-a716-446655440003');
 
     // Verify spatial chunk key (50, 50) -> "0:0"
     const expectedChunkKey = calculateChunkKey({ x: 50, y: 50 });
