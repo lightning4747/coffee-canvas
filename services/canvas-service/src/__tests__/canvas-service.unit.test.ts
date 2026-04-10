@@ -5,6 +5,11 @@ import { validateJWT } from '../auth';
 
 // Mock everything
 jest.mock('socket.io');
+jest.mock('rate-limiter-flexible', () => ({
+  RateLimiterRedis: jest.fn().mockImplementation(() => ({
+    consume: jest.fn().mockResolvedValue({}),
+  })),
+}));
 jest.mock('../auth');
 jest.mock('@coffee-canvas/shared', () => ({
   ...jest.requireActual('@coffee-canvas/shared'),
@@ -24,8 +29,8 @@ describe('CanvasService Unit Tests', () => {
   let socketListeners: Record<string, any> = {};
 
   const testPayload = {
-    userId: 'user-1',
-    roomId: 'room-1',
+    userId: '550e8400-e29b-41d4-a716-446655440001',
+    roomId: '550e8400-e29b-41d4-a716-446655440000',
     displayName: 'Painter',
     color: '#ff0000',
   };
@@ -125,7 +130,9 @@ describe('CanvasService Unit Tests', () => {
     const connectionHandler = await setupService();
     await connectionHandler(mockSocket);
 
-    expect(mockSocket.join).toHaveBeenCalledWith('room-1');
+    expect(mockSocket.join).toHaveBeenCalledWith(
+      '550e8400-e29b-41d4-a716-446655440000'
+    );
   });
 
   it('should handle stroke_begin and cache in Redis', async () => {
@@ -134,8 +141,9 @@ describe('CanvasService Unit Tests', () => {
 
     const strokeBeginHandler = socketListeners['stroke_begin'];
     const payload = {
-      strokeId: 'stroke-1',
-      roomId: 'room-1',
+      strokeId: '550e8400-e29b-41d4-a716-446655440002',
+      roomId: '550e8400-e29b-41d4-a716-446655440000',
+      userId: '550e8400-e29b-41d4-a716-446655440001',
       color: '#0000ff',
       width: 5,
       tool: 'pen',
@@ -146,8 +154,11 @@ describe('CanvasService Unit Tests', () => {
     await strokeBeginHandler(payload);
 
     expect(mockRedisClient.hSet).toHaveBeenCalledWith(
-      `canvas:stroke:stroke-1`,
-      expect.objectContaining({ userId: 'user-1', roomId: 'room-1' })
+      `canvas:stroke:550e8400-e29b-41d4-a716-446655440002`,
+      expect.objectContaining({
+        userId: '550e8400-e29b-41d4-a716-446655440001',
+        roomId: '550e8400-e29b-41d4-a716-446655440000',
+      })
     );
   });
 
@@ -157,17 +168,20 @@ describe('CanvasService Unit Tests', () => {
 
     const pourHandler = socketListeners['coffee_pour'];
     const payload = {
-      pourId: 'pour-1',
-      roomId: 'room-1',
+      pourId: '550e8400-e29b-41d4-a716-446655440003',
+      roomId: '550e8400-e29b-41d4-a716-446655440000',
+      userId: '550e8400-e29b-41d4-a716-446655440001',
       origin: { x: 100, y: 100 },
-      intensity: 50,
-      color: '#4B3621',
+      intensity: 5,
+      timestamp: Date.now(),
     };
 
     await pourHandler(payload);
 
     expect(mockPhysicsClient.computeSpread).toHaveBeenCalled();
-    expect(mockIo.to).toHaveBeenCalledWith('room-1');
+    expect(mockIo.to).toHaveBeenCalledWith(
+      '550e8400-e29b-41d4-a716-446655440000'
+    );
   });
 
   it('should handle disconnect', async () => {

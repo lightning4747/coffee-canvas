@@ -21,7 +21,13 @@ import {
   StrokeEvent,
   StrokeSegmentPayload,
   CursorPositionPayload,
+  StrokeBeginSchema,
+  StrokeSegmentSchema,
+  StrokeEndSchema,
+  CoffeePourSchema,
+  CursorMoveSchema,
 } from '@coffee-canvas/shared';
+import { RateLimiterRedis } from 'rate-limiter-flexible';
 import { validateJWT } from './auth';
 import { physicsClient, PhysicsClient } from './physics-client';
 
@@ -121,6 +127,12 @@ export interface CanvasServiceOptions {
   dbManager?: DatabaseManager;
   /** Optional custom PhysicsClient instance. */
   physicsClient?: PhysicsClient;
+  /** Optional custom RateLimiter instance for drawing. */
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  drawingRateLimiter?: any;
+  /** Optional custom RateLimiter instance for coffee pours. */
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  pourRateLimiter?: any;
 }
 
 /**
@@ -169,6 +181,25 @@ export async function initializeCanvasService(
     console.error('Failed to connect to Redis:', err);
     throw err;
   }
+
+  // 4. Initialize Rate Limiters
+  const effectiveDrawingRateLimiter =
+    normalizedOptions.drawingRateLimiter ||
+    new RateLimiterRedis({
+      storeClient: redisClient,
+      keyPrefix: 'ratelimit:drawing',
+      points: 120,
+      duration: 1,
+    });
+
+  const effectivePourRateLimiter =
+    normalizedOptions.pourRateLimiter ||
+    new RateLimiterRedis({
+      storeClient: redisClient,
+      keyPrefix: 'ratelimit:pour',
+      points: 1,
+      duration: 3,
+    });
 
   // Initialize Socket.IO with CORS and Redis adapter
   const io = new Server<
@@ -245,13 +276,34 @@ export async function initializeCanvasService(
      */
     socket.on('stroke_begin', async (payload: StrokeBeginPayload) => {
       try {
+        // 1. Rate Limiting
+        try {
+          await effectiveDrawingRateLimiter.consume(userId);
+        } catch (rej) {
+          console.warn(`Rate limit exceeded for user ${userId} (stroke_begin)`);
+          return socket.emit('error', {
+            message: 'Rate limit exceeded for drawing',
+          });
+        }
+
+        // 2. Validation
+        const validation = StrokeBeginSchema.safeParse(payload);
+        if (!validation.success) {
+          console.warn(
+            `Validation failed for stroke_begin:`,
+            validation.error.format()
+          );
+          return socket.emit('error', { message: 'Invalid stroke data' });
+        }
+
         const { strokeId } = payload;
 
-        // Basic validation: must be in the same room as the JWT
-        if (payload.roomId !== roomId) {
-          return console.warn(
-            `Invalid room ID in stroke_begin: ${payload.roomId} (expected ${roomId})`
+        // 3. Room context verification
+        if (payload.roomId !== roomId || payload.userId !== userId) {
+          console.error(
+            `Security violation: User ${userId} tried to draw in room ${payload.roomId} or as user ${payload.userId}`
           );
+          return socket.disconnect(); // Immediate disconnect for identity spoofing
         }
 
         console.log(`Stroke begin: ${strokeId} by ${userId} in ${roomId}`);
@@ -289,7 +341,19 @@ export async function initializeCanvasService(
      */
     socket.on('stroke_segment', async (payload: StrokeSegmentPayload) => {
       try {
-        if (payload.roomId !== roomId) return;
+        // 1. Rate Limiting
+        try {
+          await effectiveDrawingRateLimiter.consume(userId);
+        } catch (rej) {
+          return; // Silently drop segments exceeding rate (jitter prevention)
+        }
+
+        // 2. Validation
+        const validation = StrokeSegmentSchema.safeParse(payload);
+        if (!validation.success) return;
+
+        // 3. Room/User verification
+        if (payload.roomId !== roomId || payload.userId !== userId) return;
 
         const strokeId = payload.strokeId;
         const pointsKey = `canvas:stroke:${strokeId}:points`;
@@ -314,7 +378,14 @@ export async function initializeCanvasService(
      * Broadcast cursor movement to other participants.
      */
     socket.on('cursor_move', (payload: CursorPositionPayload) => {
-      // Basic room validation
+      // 1. Rate Limiting (Cursors are 60fps usually, let's limit to 120/s)
+      effectiveDrawingRateLimiter.consume(userId).catch(() => {}); // Fire and forget
+
+      // 2. Validation
+      const validation = CursorMoveSchema.safeParse(payload);
+      if (!validation.success) return;
+
+      // 3. Room validation
       if (payload.roomId !== roomId) return;
 
       // Ensure user info matches the socket context
@@ -331,7 +402,12 @@ export async function initializeCanvasService(
      */
     socket.on('stroke_end', async (payload: StrokeEndPayload) => {
       try {
-        if (payload.roomId !== roomId) return;
+        // 1. Validation
+        const validation = StrokeEndSchema.safeParse(payload);
+        if (!validation.success) return;
+
+        // 2. Room/User verification
+        if (payload.roomId !== roomId || payload.userId !== userId) return;
 
         const strokeId = payload.strokeId;
         const strokeKey = `canvas:stroke:${strokeId}`;
@@ -433,7 +509,26 @@ export async function initializeCanvasService(
      */
     socket.on('coffee_pour', async (payload: CoffeePourPayload) => {
       try {
-        if (payload.roomId !== roomId) return;
+        // 1. Rate Limiting (1 per 3 seconds)
+        try {
+          await effectivePourRateLimiter.consume(userId);
+        } catch (rej) {
+          console.warn(`Rate limit exceeded for user ${userId} (coffee_pour)`);
+          return socket.emit('error', {
+            message: 'Coffee pour is on cooldown',
+          });
+        }
+
+        // 2. Validation
+        const validation = CoffeePourSchema.safeParse(payload);
+        if (!validation.success) {
+          return socket.emit('error', { message: 'Invalid pour data' });
+        }
+
+        // 3. Room/User verification
+        if (payload.roomId !== roomId || payload.userId !== userId) {
+          return socket.disconnect();
+        }
 
         const { pourId, origin, intensity } = payload;
 
