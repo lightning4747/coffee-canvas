@@ -4,8 +4,8 @@
  * reconstructing the visual state of the canvas for specific spatial chunks.
  */
 
-import { Point2D, StrokeEvent } from '../../../shared/src/types/index.js';
-import { DatabaseManager } from '../../../shared/src/utils/database.js';
+import { Point2D, StrokeEvent } from '../../../shared/src';
+import { DatabaseManager } from '../../../shared/src';
 
 /**
  * Represents the complete reconstructed state of a canvas section.

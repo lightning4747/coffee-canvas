@@ -5,16 +5,21 @@ WORKDIR /app
 # Install development tools
 RUN apk add --no-cache git
 
-# Copy go mod files
-COPY services/physics-service/go.mod services/physics-service/go.sum ./
+# Copy go mod files to mirrored structure
+COPY services/physics-service/go.mod services/physics-service/go.sum ./services/physics-service/
 
 # Download dependencies
+WORKDIR /app/services/physics-service
 RUN go mod download
 
-# Copy source code
-COPY services/physics-service/ .
-COPY shared/proto/ ./proto/
+# Copy source code (respecting project structure)
+WORKDIR /app
+COPY services/physics-service/ ./services/physics-service/
+COPY shared/proto/ ./shared/proto/
+
+# Final working directory
+WORKDIR /app/services/physics-service
 
 EXPOSE 50051
 
-CMD ["go", "run", "main.go"]
+CMD ["go", "run", "."]

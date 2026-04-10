@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/no-var-requires */
 import * as fc from 'fast-check';
-import { StrokeEvent } from '../../../../shared/src/types/index.js';
-import { DatabaseManager } from '../../../../shared/src/utils/database.js';
+import { StrokeEvent } from '@coffee-canvas/shared';
+import { DatabaseManager } from '@coffee-canvas/shared';
 import { CanvasHistoryManager } from '../canvas-history';
 
 /**
@@ -21,7 +21,7 @@ describe('Canvas State Round-trip Consistency Property Tests', () => {
   } as unknown as jest.Mocked<DatabaseManager>;
 
   beforeEach(() => {
-    canvasHistoryManager = new CanvasHistoryManager(mockDb);
+    canvasHistoryManager = new CanvasHistoryManager(mockDb as any);
     jest.clearAllMocks();
   });
 

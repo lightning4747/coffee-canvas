@@ -11,12 +11,12 @@ import {
   Room,
   StrokeEvent,
   User,
-} from '../../../shared/src/types/index.js';
-import { DatabaseManager } from '../../../shared/src/utils/database.js';
-import { generateRoomCode } from '../../../shared/src/utils/index.js';
-import { extractJWTFromRequest, generateJWT, validateJWT } from './auth.js';
-import { CanvasHistoryManager } from './canvas-history.js';
-import { assignUserColor } from './color-assignment.js';
+} from '../../../shared/src/types/index';
+import { DatabaseManager } from '../../../shared/src/utils/database';
+import { generateRoomCode } from '../../../shared/src/utils/index';
+import { extractJWTFromRequest, generateJWT, validateJWT } from './auth';
+import { CanvasHistoryManager } from './canvas-history';
+import { assignUserColor } from './color-assignment';
 
 /**
  * Context object passed to every resolver.

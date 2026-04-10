@@ -5,7 +5,7 @@
  */
 
 import jwt from 'jsonwebtoken';
-import { JWTPayload, Room, User } from '../../../shared/src/types/index.js';
+import { JWTPayload, Room, User } from '../../../shared/src/types/index';
 
 /** Secret key used for signing and verifying JWTs. */
 const JWT_SECRET =

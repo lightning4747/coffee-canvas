@@ -7,7 +7,7 @@
 import * as grpc from '@grpc/grpc-js';
 import * as protoLoader from '@grpc/proto-loader';
 import path from 'path';
-import { StainResult, Point2D, StrokeData } from '@coffee-canvas/shared';
+import { Point2D, StainResult, StrokeData } from '../../../shared/src';
 
 const PROTO_PATH = path.resolve(
   __dirname,

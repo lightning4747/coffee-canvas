@@ -143,6 +143,24 @@ export interface StainResult {
 }
 
 /**
+ * Payload for real-time cursor position broadcasting.
+ */
+export interface CursorPositionPayload {
+  /** Target room ID. */
+  roomId: string;
+  /** Originating user ID. */
+  userId: string;
+  /** User's display name for labels. */
+  userName: string;
+  /** User's assigned color for the cursor. */
+  userColor: string;
+  /** Current canvas coordinate position. */
+  position: Point2D;
+  /** Movement timestamp. */
+  timestamp: number;
+}
+
+/**
  * Metadata for a collaborative drawing room.
  */
 export interface Room {

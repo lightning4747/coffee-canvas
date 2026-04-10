@@ -1,4 +1,4 @@
-import { Room, User } from '../../../../shared/src/types/index';
+import { Room, User } from '@coffee-canvas/shared';
 import { extractJWTFromRequest, generateJWT, validateJWT } from '../auth';
 
 describe('Room Service Core Functionality', () => {

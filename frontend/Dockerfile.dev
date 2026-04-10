@@ -2,18 +2,20 @@ FROM node:24-alpine
 
 WORKDIR /app
 
-# Copy package files
-COPY frontend/package*.json ./
-RUN mkdir -p ../shared
-COPY shared/package*.json ../shared/
+# Copy root package files
+COPY package*.json ./
+# Copy shared and frontend package files to mirrored structure
+COPY shared/package*.json ./shared/
+COPY frontend/package*.json ./frontend/
 
-# Install all dependencies (including dev dependencies)
+# Install all dependencies (including dev dependencies) from root
 RUN npm install
 
-# Copy source code
-COPY frontend/ .
-COPY shared/ ../shared/
+# Copy source code (respecting structure)
+COPY shared/ ./shared/
+COPY frontend/ ./frontend/
 
 EXPOSE 3000
 
-CMD ["npm", "run", "dev"]
+# Run from root using workspace flag
+CMD ["npm", "run", "dev", "-w", "frontend"]

@@ -176,30 +176,30 @@ This implementation plan creates a real-time collaborative drawing application w
     - [x] Test PixiJS rendering performance and memory usage
     - _Requirements: 3.1, 7.1, 7.2_
 
-- [ ] 8. Real-time Communication Implementation
-  - [ ] 8.1 Implement Socket.IO client integration
+- [x] 8. Real-time Communication Integration
+  - [x] 8.1 Implement Socket.IO client integration
     - Connect to Canvas Service with JWT authentication
     - Handle connection, disconnection, and reconnection events
     - Implement exponential backoff for connection retries
     - _Requirements: 4.2, 5.5, 10.1_
 
-  - [ ] 8.2 Add real-time event handling and synchronization
+  - [x] 8.2 Add real-time event handling and synchronization
     - Handle incoming stroke events and render remote user strokes
     - Implement user presence indicators and cursor tracking
     - Add conflict resolution for simultaneous drawing operations
     - _Requirements: 1.2, 1.4, 7.5_
 
-  - [ ] 8.3 Implement local buffering and offline support
+  - [x] 8.3 Implement local buffering and offline support
     - Buffer drawing operations during network disconnections
     - Replay buffered strokes upon reconnection
     - Handle canvas state synchronization after reconnection
     - _Requirements: 5.5, 6.3, 10.1_
 
-  - [ ]\* 8.4 Write property test for reconnection and recovery
+  - [x]\* 8.4 Write property test for reconnection and recovery
     - **Property 12: Reconnection and Recovery**
     - **Validates: Requirements 5.5, 10.1, 10.3**
 
-  - [ ]\* 8.5 Write integration tests for real-time communication
+  - [x]\* 8.5 Write integration tests for real-time communication
     - Test multi-user drawing scenarios with simulated clients
     - Test network disconnection and reconnection flows
     - Test canvas state synchronization accuracy

@@ -4,7 +4,7 @@
  * logic for real-time state management and coordination.
  */
 
-import { Point2D, StrokeData, User } from '../types/index.js';
+import { Point2D, StrokeData, User } from '../types/index';
 
 /**
  * Static utility class for Redis-related operations.

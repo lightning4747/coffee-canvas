@@ -8,7 +8,8 @@
     "target": "ES2020", // Explicitly set for this service
     "downlevelIteration": true, // Specifically fixes the Map/Set iteration error
     "paths": {
-      "@shared/*": ["../../shared/src/*"]
+      "@coffee-canvas/shared": ["../../shared/src/index.ts"],
+      "@coffee-canvas/shared/*": ["../../shared/src/*"]
     }
   },
   "references": [{ "path": "../../shared" }],

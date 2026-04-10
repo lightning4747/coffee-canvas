@@ -4,7 +4,7 @@
   "description": "Room Service for room management and authentication",
   "main": "dist/index.js",
   "scripts": {
-    "dev": "nodemon --exec ts-node src/index.ts",
+    "dev": "nodemon -L --watch src -e ts,js --exec ts-node -r tsconfig-paths/register src/index.ts",
     "build": "tsc",
     "start": "node dist/index.js",
     "test": "jest --passWithNoTests",
@@ -13,34 +13,35 @@
     "clean": "rm -rf dist"
   },
   "dependencies": {
-    "apollo-server-express": "^3.12.0",
-    "graphql": "^16.8.0",
-    "express": "^4.18.0",
-    "prisma": "^5.0.0",
+    "@coffee-canvas/shared": "file:../../shared",
     "@prisma/client": "^5.0.0",
-    "jsonwebtoken": "^9.0.0",
+    "apollo-server-express": "^3.12.0",
     "bcryptjs": "^2.4.0",
     "cors": "^2.8.0",
+    "express": "^4.18.0",
+    "graphql": "^16.8.0",
     "helmet": "^7.0.0",
-    "rate-limiter-flexible": "^3.0.0",
+    "jsonwebtoken": "^9.0.0",
     "pg": "^8.11.0",
-    "@coffee-canvas/shared": "file:../../shared"
+    "prisma": "^5.0.0",
+    "rate-limiter-flexible": "^3.0.0"
   },
   "devDependencies": {
-    "@types/node": "^24.0.0",
-    "@types/express": "^4.17.0",
-    "@types/jsonwebtoken": "^9.0.0",
     "@types/bcryptjs": "^2.4.0",
     "@types/cors": "^2.8.0",
-    "@types/pg": "^8.10.0",
-    "typescript": "^5.3.0",
-    "ts-node": "^10.9.0",
-    "nodemon": "^3.0.0",
-    "jest": "^29.0.0",
+    "@types/express": "^4.17.0",
     "@types/jest": "^29.0.0",
-    "ts-jest": "^29.0.0",
-    "eslint": "^8.0.0",
+    "@types/jsonwebtoken": "^9.0.0",
+    "@types/node": "^24.0.0",
+    "@types/pg": "^8.10.0",
     "@typescript-eslint/eslint-plugin": "^6.21.0",
-    "@typescript-eslint/parser": "^6.21.0"
+    "@typescript-eslint/parser": "^6.21.0",
+    "eslint": "^8.0.0",
+    "jest": "^29.0.0",
+    "nodemon": "^3.0.0",
+    "ts-jest": "^29.0.0",
+    "ts-node": "^10.9.0",
+    "tsconfig-paths": "^3.15.0",
+    "typescript": "^5.3.0"
   }
 }
