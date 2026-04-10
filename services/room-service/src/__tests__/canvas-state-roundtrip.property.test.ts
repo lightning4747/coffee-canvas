@@ -21,7 +21,7 @@ describe('Canvas State Round-trip Consistency Property Tests', () => {
   } as unknown as jest.Mocked<DatabaseManager>;
 
   beforeEach(() => {
-    canvasHistoryManager = new CanvasHistoryManager(mockDb);
+    canvasHistoryManager = new CanvasHistoryManager(mockDb as any);
     jest.clearAllMocks();
   });
 

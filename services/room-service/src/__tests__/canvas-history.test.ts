@@ -39,7 +39,7 @@ describe('Canvas History Manager', () => {
       getStrokeEventsInChunksWithPagination: jest.fn(),
     } as unknown as jest.Mocked<DatabaseManager>;
 
-    canvasHistoryManager = new CanvasHistoryManager(mockDb);
+    canvasHistoryManager = new CanvasHistoryManager(mockDb as any);
   });
 
   describe('getCanvasHistory', () => {
