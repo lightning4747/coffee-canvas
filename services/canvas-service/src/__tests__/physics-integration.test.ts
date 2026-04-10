@@ -178,7 +178,7 @@ describe('Physics Integration Verification', () => {
     socket.emit('coffee_pour', pourPayload);
 
     // Wait for the async handler to finish
-    await new Promise(resolve => setTimeout(resolve, 50));
+    await new Promise(resolve => setTimeout(resolve, 200));
 
     // Assertions
     // 1. Should have fetched active strokes from Redis

@@ -127,6 +127,12 @@ export interface CanvasServiceOptions {
   dbManager?: DatabaseManager;
   /** Optional custom PhysicsClient instance. */
   physicsClient?: PhysicsClient;
+  /** Optional custom RateLimiter instance for drawing. */
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  drawingRateLimiter?: any;
+  /** Optional custom RateLimiter instance for coffee pours. */
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  pourRateLimiter?: any;
 }
 
 /**
@@ -177,21 +183,23 @@ export async function initializeCanvasService(
   }
 
   // 4. Initialize Rate Limiters
-  // Drawing rate limit: 120 events per second per user
-  const drawingRateLimiter = new RateLimiterRedis({
-    storeClient: redisClient,
-    keyPrefix: 'ratelimit:drawing',
-    points: 120,
-    duration: 1,
-  });
+  const effectiveDrawingRateLimiter =
+    normalizedOptions.drawingRateLimiter ||
+    new RateLimiterRedis({
+      storeClient: redisClient,
+      keyPrefix: 'ratelimit:drawing',
+      points: 120,
+      duration: 1,
+    });
 
-  // Coffee pour rate limit: 1 pour per 3 seconds per user
-  const pourRateLimiter = new RateLimiterRedis({
-    storeClient: redisClient,
-    keyPrefix: 'ratelimit:pour',
-    points: 1,
-    duration: 3,
-  });
+  const effectivePourRateLimiter =
+    normalizedOptions.pourRateLimiter ||
+    new RateLimiterRedis({
+      storeClient: redisClient,
+      keyPrefix: 'ratelimit:pour',
+      points: 1,
+      duration: 3,
+    });
 
   // Initialize Socket.IO with CORS and Redis adapter
   const io = new Server<
@@ -270,7 +278,7 @@ export async function initializeCanvasService(
       try {
         // 1. Rate Limiting
         try {
-          await drawingRateLimiter.consume(userId);
+          await effectiveDrawingRateLimiter.consume(userId);
         } catch (rej) {
           console.warn(`Rate limit exceeded for user ${userId} (stroke_begin)`);
           return socket.emit('error', {
@@ -335,7 +343,7 @@ export async function initializeCanvasService(
       try {
         // 1. Rate Limiting
         try {
-          await drawingRateLimiter.consume(userId);
+          await effectiveDrawingRateLimiter.consume(userId);
         } catch (rej) {
           return; // Silently drop segments exceeding rate (jitter prevention)
         }
@@ -371,7 +379,7 @@ export async function initializeCanvasService(
      */
     socket.on('cursor_move', (payload: CursorPositionPayload) => {
       // 1. Rate Limiting (Cursors are 60fps usually, let's limit to 120/s)
-      drawingRateLimiter.consume(userId).catch(() => {}); // Fire and forget
+      effectiveDrawingRateLimiter.consume(userId).catch(() => {}); // Fire and forget
 
       // 2. Validation
       const validation = CursorMoveSchema.safeParse(payload);
@@ -503,7 +511,7 @@ export async function initializeCanvasService(
       try {
         // 1. Rate Limiting (1 per 3 seconds)
         try {
-          await pourRateLimiter.consume(userId);
+          await effectivePourRateLimiter.consume(userId);
         } catch (rej) {
           console.warn(`Rate limit exceeded for user ${userId} (coffee_pour)`);
           return socket.emit('error', {

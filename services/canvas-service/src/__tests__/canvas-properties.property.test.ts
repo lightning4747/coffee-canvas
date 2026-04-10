@@ -1,7 +1,10 @@
 import * as fc from 'fast-check';
 import { EventEmitter } from 'events';
-import { initializeCanvasService } from '../index';
 import { calculateChunkKey } from '@coffee-canvas/shared';
+
+// We require initializeCanvasService after mocks to ensure they are picked up
+// eslint-disable-next-line @typescript-eslint/no-var-requires
+const { initializeCanvasService } = require('../index');
 
 // Mock dependencies
 const mockRedisClient = {
@@ -143,9 +146,11 @@ function createMockSocket(
 
 describe('Canvas Service Property Tests', () => {
   let io: EventEmitter & { to: jest.Mock };
+  let flushTasks: () => Promise<void>;
 
   beforeEach(async () => {
     const mockHttpServer = new EventEmitter();
+    const rateLimiterMock = { consume: jest.fn().mockResolvedValue({}) };
     const result = await (initializeCanvasService as any)(
       mockHttpServer as any,
       {
@@ -153,9 +158,12 @@ describe('Canvas Service Property Tests', () => {
         redisClient: mockRedisClient,
         dbManager: mockDbManager as any,
         physicsClient: mockPhysicsClient,
+        drawingRateLimiter: rateLimiterMock,
+        pourRateLimiter: rateLimiterMock,
       }
     );
     io = result.io as unknown as EventEmitter & { to: jest.Mock };
+    flushTasks = result.flushPendingTasks;
   });
 
   afterEach(() => {
@@ -439,7 +447,8 @@ describe('Canvas Service Property Tests', () => {
             width: '2',
             startTime: Date.now().toString(),
           });
-          mockDbManager.batchInsertStrokeEvents.mockClear();
+          // NOTE: We don't mockClear here to avoid race conditions between parallel async runs.
+          // Instead we verify unique strokeId below.
 
           // 1. Emit events
           socket.emit('stroke_begin', {
@@ -465,13 +474,21 @@ describe('Canvas Service Property Tests', () => {
             timestamp: Date.now(),
           });
 
-          // 2. Wait for async setImmediate persistence
+          // 2. Wait for async setImmediate persistence + async work
           await new Promise(resolve => setTimeout(resolve, 100));
+          await flushTasks();
 
           // 3. Verifications
-          expect(mockDbManager.batchInsertStrokeEvents).toHaveBeenCalled();
-          const persistedEvents =
-            mockDbManager.batchInsertStrokeEvents.mock.calls[0][0];
+          // Use haveBeenCalledWith to avoid race conditions with other runs
+          expect(mockDbManager.batchInsertStrokeEvents).toHaveBeenCalledWith(
+            expect.arrayContaining([expect.objectContaining({ strokeId })])
+          );
+
+          const lastCall =
+            mockDbManager.batchInsertStrokeEvents.mock.calls.find(call =>
+              call[0].some((e: any) => e.strokeId === strokeId)
+            );
+          const persistedEvents = lastCall[0];
           expect(persistedEvents.length).toBeGreaterThanOrEqual(3);
 
           const expectedChunkKey = calculateChunkKey(points[0]);
@@ -504,9 +521,7 @@ describe('Canvas Service Property Tests', () => {
           >;
           await Promise.all(connectionListeners.map(l => l(socket)));
 
-          // 0. Setup and clear mocks
-          mockDbManager.insertStrokeEvent.mockClear();
-          mockPhysicsClient.computeSpread.mockClear();
+          // 0. Setup (No mockClear to avoid race conditions)
 
           // 1. Emit coffee_pour
           socket.emit('coffee_pour', {
@@ -519,10 +534,17 @@ describe('Canvas Service Property Tests', () => {
           });
 
           // 2. Wait for async physics + async persistence
-          await new Promise(resolve => setTimeout(resolve, 100));
+          await new Promise(resolve => setTimeout(resolve, 50));
+          await flushTasks();
 
           // 3. Verifications
-          expect(mockPhysicsClient.computeSpread).toHaveBeenCalled();
+          expect(mockPhysicsClient.computeSpread).toHaveBeenCalledWith(
+            roomId,
+            pourId,
+            origin,
+            intensity,
+            expect.anything()
+          );
           expect(mockDbManager.insertStrokeEvent).toHaveBeenCalledWith(
             expect.objectContaining({
               strokeId: pourId,
