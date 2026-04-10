@@ -118,13 +118,8 @@ export const Canvas: React.FC = () => {
     };
 
     const handleRemoteStrokeEnd = (payload: StrokeEndPayload) => {
-      const stroke = remoteStrokesRef.current.get(payload.strokeId);
-      if (stroke) {
-        if (stroke.graphics.parent) {
-          stroke.graphics.parent.removeChild(stroke.graphics);
-        }
-        stroke.graphics.destroy();
-      }
+      // We no longer remove the graphics from the stage.
+      // This ensures the stroke stays visible after completion.
       remoteStrokesRef.current.delete(payload.strokeId);
     };
 
@@ -310,8 +305,8 @@ export const Canvas: React.FC = () => {
     const interval = setInterval(() => {
       const now = Date.now();
       remoteCursorsRef.current.forEach((data, userId) => {
-        if (now - data.lastUpdate > 5000) {
-          // 5 seconds timeout
+        if (now - data.lastUpdate > 60000) {
+          // 60 seconds timeout
           if (cursorsLayer && data.container.parent) {
             cursorsLayer.removeChild(data.container);
             data.container.destroy({ children: true });

@@ -4,7 +4,7 @@
   "description": "Room Service for room management and authentication",
   "main": "dist/index.js",
   "scripts": {
-    "dev": "nodemon --exec ts-node src/index.ts",
+    "dev": "nodemon -L --watch src -e ts,js --exec ts-node src/index.ts",
     "build": "tsc",
     "start": "node dist/index.js",
     "test": "jest --passWithNoTests",

@@ -3,7 +3,7 @@ import cors from 'cors';
 import express from 'express';
 import helmet from 'helmet';
 import { RateLimiterMemory } from 'rate-limiter-flexible';
-import { DatabaseManager } from '@coffee-canvas/shared';
+import { DatabaseManager } from '../../../shared/src';
 import { CanvasHistoryManager } from './canvas-history';
 import { resolvers } from './resolvers';
 import { typeDefs } from './schema';
