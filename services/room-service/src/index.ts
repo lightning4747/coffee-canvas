@@ -29,7 +29,18 @@ app.use(
 
 app.use(
   cors({
-    origin: process.env.CORS_ORIGIN || 'http://localhost:3000',
+    origin: (origin, callback) => {
+      const allowedOrigins = [
+        process.env.CORS_ORIGIN || 'http://localhost:3000',
+        'http://localhost:3001', // Canvas service health checks/inter-service if needed
+      ];
+      if (!origin || allowedOrigins.indexOf(origin) !== -1) {
+        callback(null, true);
+      } else {
+        console.warn(`Blocked request from unauthorized origin: ${origin}`);
+        callback(new Error('Not allowed by CORS'));
+      }
+    },
     credentials: true,
   })
 );

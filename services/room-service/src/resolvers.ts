@@ -11,7 +11,9 @@ import {
   Room,
   StrokeEvent,
   User,
-} from '../../../shared/src/types/index';
+  CreateRoomSchema,
+  JoinRoomSchema,
+} from '@coffee-canvas/shared';
 import { DatabaseManager } from '../../../shared/src/utils/database';
 import { generateRoomCode } from '../../../shared/src/utils/index';
 import { extractJWTFromRequest, generateJWT, validateJWT } from './auth';
@@ -231,17 +233,19 @@ export const resolvers = {
       { input }: { input: CreateRoomInput },
       { db }: Context
     ): Promise<AuthPayload> {
-      // Validate input
-      const capacity = input.capacity ?? 10;
-      if (capacity < 1 || capacity > 50) {
-        throw new Error('Room capacity must be between 1 and 50');
+      // Validate input using Zod
+      const validation = CreateRoomSchema.safeParse(input);
+      if (!validation.success) {
+        throw new Error(
+          `Validation failed: ${validation.error.issues[0].message}`
+        );
       }
 
-      if (input.name && input.name.length > 255) {
-        throw new Error('Room name must be 255 characters or less');
-      }
+      const validatedInput = validation.data;
+      const capacity = validatedInput.capacity;
 
       try {
+        console.log(`Audit: Creating room with capacity ${capacity}`);
         const maxAttempts = 10;
         let room: Room | undefined;
         let user: User | undefined;
@@ -314,24 +318,24 @@ export const resolvers = {
       { input }: { input: JoinRoomInput },
       { db }: Context
     ): Promise<AuthPayload> {
-      // Validate input
-      if (!input.code || input.code.length < 4 || input.code.length > 12) {
-        throw new Error('Invalid room code');
+      // Validate input using Zod
+      const validation = JoinRoomSchema.safeParse(input);
+      if (!validation.success) {
+        throw new Error(
+          `Validation failed: ${validation.error.issues[0].message}`
+        );
       }
 
-      if (
-        !input.displayName ||
-        input.displayName.length < 1 ||
-        input.displayName.length > 50
-      ) {
-        throw new Error('Display name must be between 1 and 50 characters');
-      }
+      const validatedInput = validation.data;
 
       try {
+        console.log(
+          `Audit: User ${validatedInput.displayName} joining room code ${validatedInput.code}`
+        );
         const { room, user } = await db.transaction(async client => {
           // Find room by code with row lock
           const r = await db.getRoomForUpdateByCode(
-            input.code.toUpperCase(),
+            validatedInput.code,
             client
           );
           if (!r) {
@@ -353,7 +357,7 @@ export const resolvers = {
           // Add user to room
           const u = await db.addUserToRoom(
             r.id,
-            input.displayName,
+            validatedInput.displayName,
             userColor,
             client
           );
