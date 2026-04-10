@@ -4,7 +4,7 @@
   "description": "Canvas Service for real-time drawing operations",
   "main": "dist/index.js",
   "scripts": {
-    "dev": "nodemon -L --watch src -e ts,js --exec ts-node src/index.ts",
+    "dev": "nodemon -L --watch src -e ts,js --exec ts-node -r tsconfig-paths/register src/index.ts",
     "build": "tsc",
     "start": "node dist/index.js",
     "test": "jest --passWithNoTests",
@@ -13,34 +13,35 @@
     "clean": "rm -rf dist"
   },
   "dependencies": {
-    "socket.io": "^4.7.0",
-    "socket.io-redis": "^6.1.0",
-    "redis": "^4.6.0",
-    "prisma": "^5.0.0",
-    "@prisma/client": "^5.0.0",
-    "jsonwebtoken": "^9.0.0",
+    "@coffee-canvas/shared": "file:../../shared",
     "@grpc/grpc-js": "^1.9.0",
     "@grpc/proto-loader": "^0.7.0",
-    "express": "^4.18.0",
+    "@prisma/client": "^5.0.0",
     "cors": "^2.8.0",
+    "express": "^4.18.0",
     "helmet": "^7.0.0",
+    "jsonwebtoken": "^9.0.0",
+    "prisma": "^5.0.0",
     "rate-limiter-flexible": "^3.0.0",
-    "@coffee-canvas/shared": "file:../../shared"
+    "redis": "^4.6.0",
+    "socket.io": "^4.7.0",
+    "socket.io-redis": "^6.1.0"
   },
   "devDependencies": {
-    "@types/node": "^24.0.0",
-    "@types/express": "^4.17.0",
-    "@types/jsonwebtoken": "^9.0.0",
     "@types/cors": "^2.8.0",
-    "typescript": "^5.3.0",
-    "ts-node": "^10.9.0",
-    "nodemon": "^3.0.0",
-    "jest": "^29.0.0",
+    "@types/express": "^4.17.0",
     "@types/jest": "^29.0.0",
-    "ts-jest": "^29.0.0",
-    "fast-check": "^4.6.0",
-    "eslint": "^8.0.0",
+    "@types/jsonwebtoken": "^9.0.0",
+    "@types/node": "^24.0.0",
     "@typescript-eslint/eslint-plugin": "^6.21.0",
-    "@typescript-eslint/parser": "^6.21.0"
+    "@typescript-eslint/parser": "^6.21.0",
+    "eslint": "^8.0.0",
+    "fast-check": "^4.6.0",
+    "jest": "^29.0.0",
+    "nodemon": "^3.0.0",
+    "ts-jest": "^29.0.0",
+    "ts-node": "^10.9.0",
+    "tsconfig-paths": "^3.15.0",
+    "typescript": "^5.3.0"
   }
 }
