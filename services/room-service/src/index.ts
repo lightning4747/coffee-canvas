@@ -7,6 +7,7 @@ import { DatabaseManager } from '../../../shared/src';
 import { CanvasHistoryManager } from './canvas-history';
 import { resolvers } from './resolvers';
 import { typeDefs } from './schema';
+import { metricsRegistry, graphqlQueryDuration, errorTotal } from './metrics';
 
 const app = express();
 const PORT = process.env.PORT || 3002;
@@ -84,6 +85,27 @@ async function startServer() {
       }),
       introspection: process.env.NODE_ENV !== 'production',
       debug: process.env.NODE_ENV !== 'production',
+      plugins: [
+        {
+          async requestDidStart(requestContext) {
+            const start = performance.now();
+            const opName = requestContext.request.operationName || 'unnamed';
+            return {
+              async willSendResponse(responseContext) {
+                const duration = (performance.now() - start) / 1000;
+                const status = responseContext.errors ? 'error' : 'success';
+                graphqlQueryDuration.observe(
+                  { operation_name: opName, status },
+                  duration
+                );
+                if (responseContext.errors) {
+                  errorTotal.inc({ error_type: 'graphql_error' });
+                }
+              },
+            };
+          },
+        },
+      ],
     });
 
     await server.start();
@@ -93,7 +115,6 @@ async function startServer() {
       path: '/graphql',
       cors: false, // We handle CORS above
     });
-
     // Health check endpoint
     app.get('/health', async (req, res) => {
       try {
@@ -115,6 +136,16 @@ async function startServer() {
           timestamp: new Date().toISOString(),
           service: 'room-service',
         });
+      }
+    });
+
+    // Prometheus metrics endpoint
+    app.get('/metrics', async (req, res) => {
+      try {
+        res.set('Content-Type', metricsRegistry.contentType);
+        res.end(await metricsRegistry.metrics());
+      } catch (err) {
+        res.status(500).send(err instanceof Error ? err.message : String(err));
       }
     });
 

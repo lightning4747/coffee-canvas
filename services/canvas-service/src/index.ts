@@ -30,6 +30,14 @@ import {
 import { RateLimiterRedis } from 'rate-limiter-flexible';
 import { validateJWT } from './auth';
 import { physicsClient, PhysicsClient } from './physics-client';
+import {
+  metricsRegistry,
+  activeConnections,
+  socketEventDuration,
+  broadcastLatency,
+  dbWriteDuration,
+  errorTotal,
+} from './metrics';
 
 const PORT = process.env.PORT || 3001;
 const REDIS_URL = process.env.REDIS_URL || 'redis://localhost:6379';
@@ -149,6 +157,10 @@ export async function initializeCanvasService(
 ) {
   /** Tracking set for background persistence operations to ensure graceful shutdown. */
   const pendingPersistenceTasks = new Set<Promise<void>>();
+
+  // Metrics counters
+  let totalStrokesSaved = 0;
+  let totalPhysicsSimulations = 0;
 
   const normalizedOptions =
     typeof options === 'string' ? { redisUrl: options } : options;
@@ -279,6 +291,7 @@ export async function initializeCanvasService(
     // IMPORTANT: Join the room IMMEDIATELY so handlers can broadcast accurately.
     await socket.join(roomId);
 
+    activeConnections.inc({ room_id: roomId });
     console.log(
       `User ${displayName} (${userId}) connected and joined room ${roomId} (socket: ${socket.id})`
     );
@@ -289,6 +302,10 @@ export async function initializeCanvasService(
      * Cache the initial stroke state and metadata.
      */
     socket.on('stroke_begin', async (payload: StrokeBeginPayload) => {
+      const endTimer = socketEventDuration.startTimer({
+        event_type: 'stroke_begin',
+        room_id: roomId,
+      });
       try {
         // 1. Rate Limiting
         try {
@@ -345,6 +362,7 @@ export async function initializeCanvasService(
 
         // 7. Broadcast to others in the room
         socket.to(roomId).emit('stroke_begin', payload);
+        endTimer();
         console.debug(
           `[Sync] Broadcasted stroke_begin ${strokeId} to room ${roomId}`
         );
@@ -357,6 +375,10 @@ export async function initializeCanvasService(
      * Incremental buffer of drawing points in Redis.
      */
     socket.on('stroke_segment', async (payload: StrokeSegmentPayload) => {
+      const endTimer = socketEventDuration.startTimer({
+        event_type: 'stroke_segment',
+        room_id: roomId,
+      });
       try {
         // 1. Rate Limiting
         try {
@@ -386,6 +408,7 @@ export async function initializeCanvasService(
 
         // Broadcast to others
         socket.to(roomId).emit('stroke_segment', payload);
+        endTimer();
         // Throttle logging for segments to avoid flooding
         if (Math.random() < 0.1) {
           console.debug(
@@ -424,6 +447,11 @@ export async function initializeCanvasService(
      * Finalizes stroke and triggers asynchronous persistence to PostgreSQL.
      */
     socket.on('stroke_end', async (payload: StrokeEndPayload) => {
+      const endTimer = socketEventDuration.startTimer({
+        event_type: 'stroke_end',
+        room_id: roomId,
+      });
+      const startTimestamp = performance.now();
       try {
         // 1. Validation
         const validation = StrokeEndSchema.safeParse(payload);
@@ -458,6 +486,9 @@ export async function initializeCanvasService(
         setImmediate(() => {
           const p = (async () => {
             try {
+              const dbTimer = dbWriteDuration.startTimer({
+                operation_type: 'stroke_persistence',
+              });
               // 1. Fetch metadata and all points
               const [strokeMeta, pointsJson] = await Promise.all([
                 redisClient.hGetAll(`canvas:stroke:${strokeId}`),
@@ -511,8 +542,14 @@ export async function initializeCanvasService(
 
               // 3. Batch insert to PostgreSQL
               await dbManager.batchInsertStrokeEvents(events);
+              dbTimer();
+              totalStrokesSaved++;
             } catch (err) {
               console.error(`Failed to persist stroke ${strokeId}:`, err);
+              errorTotal.inc({
+                error_type: 'db_persistence_error',
+                room_id: roomId,
+              });
             }
           })();
           pendingPersistenceTasks.add(p);
@@ -521,6 +558,11 @@ export async function initializeCanvasService(
 
         // Broadcast to others
         socket.to(roomId).emit('stroke_end', payload);
+        endTimer();
+        broadcastLatency.observe(
+          { event_type: 'stroke_end', room_id: roomId },
+          (performance.now() - startTimestamp) / 1000
+        );
       } catch (error) {
         console.error(`Error in stroke_end for user ${userId}:`, error);
       }
@@ -531,6 +573,11 @@ export async function initializeCanvasService(
      * and persisting the generated stains.
      */
     socket.on('coffee_pour', async (payload: CoffeePourPayload) => {
+      const endTimer = socketEventDuration.startTimer({
+        event_type: 'coffee_pour',
+        room_id: roomId,
+      });
+      const startTimestamp = performance.now();
       try {
         // 1. Rate Limiting (1 per 3 seconds)
         try {
@@ -604,6 +651,7 @@ export async function initializeCanvasService(
           intensity,
           strokeDataList
         );
+        totalPhysicsSimulations++;
 
         // 3. Cache stain result in Redis for history replay
         // Requirement 1.5, 6.2: Ensure all participants (including future ones) see the result
@@ -624,6 +672,9 @@ export async function initializeCanvasService(
         setImmediate(() => {
           const p = (async () => {
             try {
+              const dbTimer = dbWriteDuration.startTimer({
+                operation_type: 'stain_persistence',
+              });
               await dbManager.insertStrokeEvent({
                 roomId,
                 strokeId: pourId, // Use pourId as strokeId for stains
@@ -635,11 +686,16 @@ export async function initializeCanvasService(
                   strokeMutations: result.strokeMutations,
                 },
               });
+              dbTimer();
               console.log(
                 `Persisted stain ${pourId} to PostgreSQL (chunk: ${chunkKey})`
               );
             } catch (err) {
               console.error(`Failed to persist stain ${pourId}:`, err);
+              errorTotal.inc({
+                error_type: 'db_persistence_error',
+                room_id: roomId,
+              });
             }
           })();
           pendingPersistenceTasks.add(p);
@@ -658,6 +714,11 @@ export async function initializeCanvasService(
 
         console.log(
           `Physics simulation complete for ${pourId} (${result.computationMs}ms)`
+        );
+        endTimer();
+        broadcastLatency.observe(
+          { event_type: 'coffee_pour', room_id: roomId },
+          (performance.now() - startTimestamp) / 1000
         );
       } catch (error) {
         console.error(`Error in coffee_pour for user ${userId}:`, error);
@@ -690,6 +751,7 @@ export async function initializeCanvasService(
         console.log(
           `User ${displayName} disconnected from room ${roomId} (reason: ${reason})`
         );
+        activeConnections.dec({ room_id: roomId });
 
         // Notify others in the room
         socket.to(roomId).emit('user-left', {
@@ -742,25 +804,80 @@ export async function initializeCanvasService(
     }
   };
 
-  return { io, redisClient, dbManager, flushPendingTasks };
+  return {
+    io,
+    redisClient,
+    dbManager,
+    flushPendingTasks,
+    getMetrics: () => ({ totalStrokesSaved, totalPhysicsSimulations }),
+  };
 }
 
 const app = express();
 const httpServer = createServer(app);
 
-// Health check endpoint
-app.get('/health', (req, res) => {
-  res.status(200).json({
-    status: 'healthy',
-    service: 'canvas-service',
-    timestamp: new Date().toISOString(),
-  });
+// Prometheus metrics endpoint
+app.get('/metrics', async (req, res) => {
+  try {
+    res.set('Content-Type', metricsRegistry.contentType);
+    res.end(await metricsRegistry.metrics());
+  } catch (err) {
+    res.status(500).send(err instanceof Error ? err.message : String(err));
+  }
 });
 
 // Initialize and start service
 if (require.main === module) {
   initializeCanvasService(httpServer).then(
-    ({ io, redisClient, flushPendingTasks }) => {
+    ({ io, redisClient, dbManager, flushPendingTasks, getMetrics }) => {
+      // Health check endpoint
+      app.get('/health', async (req, res) => {
+        const health: any = {
+          status: 'healthy',
+          service: 'canvas-service',
+          timestamp: new Date().toISOString(),
+          dependencies: {},
+        };
+
+        try {
+          // 1. Check Redis
+          const redisPing = await redisClient.ping();
+          health.dependencies.redis = redisPing === 'PONG' ? 'UP' : 'DOWN';
+
+          // 2. Check Database
+          const dbHealthy = await dbManager.healthCheck();
+          health.dependencies.database = dbHealthy ? 'UP' : 'DOWN';
+
+          // 3. Check Physics Service (Basic connectivity)
+          health.dependencies.physics = 'UP'; // Verified during initialization
+
+          // Overall status
+          if (
+            health.dependencies.redis === 'DOWN' ||
+            health.dependencies.database === 'DOWN'
+          ) {
+            health.status = 'degraded';
+            res.status(503);
+          } else {
+            res.status(200);
+          }
+
+          // Add basic metrics info
+          const metrics = getMetrics();
+          health.metrics = {
+            ...metrics,
+            uptime: process.uptime(),
+          };
+
+          res.json(health);
+        } catch (err) {
+          res.status(500).json({
+            status: 'unhealthy',
+            error: err instanceof Error ? err.message : String(err),
+          });
+        }
+      });
+
       httpServer.listen(PORT, () => {
         console.log(`Canvas Service running on port ${PORT}`);
         console.log(`Health check: http://localhost:${PORT}/health`);

@@ -63,7 +63,10 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({
   useEffect(() => {
     if (!roomId || !userId) {
       const mockRoomId = '550e8400-e29b-41d4-a716-446655440000';
-      const mockUserId = 'f47ac10b-58cc-4372-a567-0e02b2c3d479';
+      // Generate a session-based random ID to enable multi-user local testing
+      // This allows opening multiple browser windows and seeing distinct cursors
+      const sessionSuffix = Math.random().toString(36).substring(2, 6);
+      const mockUserId = `user-${sessionSuffix}`;
       setRoomInfo(mockRoomId, mockUserId);
     }
   }, [roomId, userId, setRoomInfo]);
@@ -75,9 +78,10 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({
     const socketUrl =
       process.env.NEXT_PUBLIC_SOCKET_URL || 'http://localhost:3001';
 
-    // For Phase 8, we use a mock JWT if real one isn't available
-    // In a real app, this would come from the Room Service
-    const mockToken = 'mock-jwt-token';
+    // For Phase 8, we use a dynamic mock JWT that conveys identity for dev mode
+    const mockToken = `mock-jwt-token:${userId}:Artist-${userId.split('-')[1]}:${
+      brushSettings.color
+    }`;
 
     const newSocket = io(socketUrl, {
       auth: {

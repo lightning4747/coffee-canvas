@@ -1,6 +1,8 @@
 import * as PIXI from 'pixi.js';
 import { Point2D } from '@shared/types';
 
+import { GraphicsPool } from './GraphicsPool';
+
 export interface StrokeStyle {
   color: string;
   width: number;
@@ -42,11 +44,9 @@ export class StrokeRenderer {
   }
 
   /**
-   * Creates a new Graphics object for an active stroke.
+   * Gets a Graphics object from the pool for a new stroke.
    */
   static createGraphics(): PIXI.Graphics {
-    const g = new PIXI.Graphics();
-    // Enable performance optimizations for frequently updated graphics
-    return g;
+    return GraphicsPool.get();
   }
 }

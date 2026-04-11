@@ -126,7 +126,7 @@ export const Canvas: React.FC = () => {
     const handleStainResult = (payload: StainResult) => {
       // 1. Render new stain polygons
       payload.stainPolygons.forEach(stain => {
-        const g = new PIXI.Graphics();
+        const g = StrokeRenderer.createGraphics();
         drawingLayer.addChild(g);
         StainRenderer.animateStain(g, stain.path, stain.color, stain.opacity);
       });
@@ -185,7 +185,7 @@ export const Canvas: React.FC = () => {
 
       // Handle Coffee Pour Interaction (Task 7.3)
       if (activeTool === 'pour') {
-        const g = new PIXI.Graphics();
+        const g = StrokeRenderer.createGraphics();
         drawingLayer.addChild(g);
 
         // Generate organic splatter pattern
@@ -318,6 +318,33 @@ export const Canvas: React.FC = () => {
 
     return () => clearInterval(interval);
   }, [cursorsLayer]);
+
+  // 6. Viewport Culling (Phase 10.2)
+  useEffect(() => {
+    if (!drawingLayer || !pixiApp) return;
+
+    // Viewport bounds in world coordinates
+    const worldLeft = -viewport.x / viewport.zoom;
+    const worldTop = -viewport.y / viewport.zoom;
+    const worldWidth = pixiApp.screen.width / viewport.zoom;
+    const worldHeight = pixiApp.screen.height / viewport.zoom;
+    const worldRight = worldLeft + worldWidth;
+    const worldBottom = worldTop + worldHeight;
+
+    const buffer = 100 / viewport.zoom; // 100px buffer in world units
+
+    drawingLayer.children.forEach(child => {
+      // Use getLocalBounds for efficiency as children of drawingLayer are in world space
+      const bounds = child.getLocalBounds();
+      const isVisible =
+        bounds.right >= worldLeft - buffer &&
+        bounds.left <= worldRight + buffer &&
+        bounds.bottom >= worldTop - buffer &&
+        bounds.top <= worldBottom + buffer;
+
+      child.visible = isVisible;
+    });
+  }, [viewport, drawingLayer, pixiApp]);
 
   return (
     <div

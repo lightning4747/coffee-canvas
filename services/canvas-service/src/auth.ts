@@ -26,12 +26,20 @@ const JWT_SECRET =
  */
 export function validateJWT(token: string): Promise<JWTPayload> {
   // Support mock token for development if not fully integrated
-  if (process.env.NODE_ENV !== 'production' && token === 'mock-jwt-token') {
+  if (
+    process.env.NODE_ENV !== 'production' &&
+    token.startsWith('mock-jwt-token')
+  ) {
+    const parts = token.split(':');
+    const userId = parts[1] || 'f47ac10b-58cc-4372-a567-0e02b2c3d479';
+    const displayName = parts[2] || 'Mock User';
+    const color = parts[3] || '#8b5cf6';
+
     return Promise.resolve({
-      userId: 'f47ac10b-58cc-4372-a567-0e02b2c3d479',
+      userId,
       roomId: '550e8400-e29b-41d4-a716-446655440000',
-      displayName: 'Mock User',
-      color: '#8b5cf6',
+      displayName,
+      color,
       iat: Math.floor(Date.now() / 1000),
       exp: Math.floor(Date.now() / 1000) + 86400,
     });

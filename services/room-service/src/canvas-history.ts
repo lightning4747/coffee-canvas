@@ -6,6 +6,7 @@
 
 import { Point2D, StrokeEvent } from '../../../shared/src';
 import { DatabaseManager } from '../../../shared/src';
+import { dbReadDuration } from './metrics';
 
 /**
  * Represents the complete reconstructed state of a canvas section.
@@ -180,12 +181,16 @@ export class CanvasHistoryManager {
     try {
       // Get paginated events from database
       const cursorDate = cursor ? new Date(cursor) : undefined;
+      const dbTimer = dbReadDuration.startTimer({
+        query_type: 'get_canvas_history',
+      });
       const result = await this.db.getStrokeEventsInChunksWithPagination(
         roomId,
         chunkKeys,
         cursorDate,
         safeLimit
       );
+      dbTimer();
 
       // Generate next cursor
       const nextCursor =
