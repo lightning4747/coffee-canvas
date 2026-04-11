@@ -91,14 +91,24 @@ export function isValidColor(color: string): boolean {
 }
 
 /**
- * Generates a unique, timestamp-prefixed identifier.
- * @param prefix - Key category (e.g. 'stroke', 'pour').
- * @returns A unique string.
+ * Generates a unique, standard UUID v4.
+ * Uses the built-in crypto module for cryptographic strength and schema compatibility.
+ * @returns A valid UUID string.
  */
-export function generateId(prefix: string): string {
-  const timestamp = Date.now().toString(36);
-  const random = Math.random().toString(36).substr(2, 5);
-  return `${prefix}_${timestamp}_${random}`;
+export function generateId(_prefix?: string): string {
+  // We ignore the prefix for the final ID to ensure strict UUID compliance in schemas,
+  // but we can log or use it if we change the schemas later.
+  // For now, z.string().uuid() is used in the backend.
+  if (typeof crypto !== 'undefined' && crypto.randomUUID) {
+    return crypto.randomUUID();
+  }
+
+  // Fallback for older environments (should not be reached in modern Node/Browsers)
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, c => {
+    const r = (Math.random() * 16) | 0;
+    const v = c === 'x' ? r : (r & 0x3) | 0x8;
+    return v.toString(16);
+  });
 }
 
 /**

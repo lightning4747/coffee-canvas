@@ -4,9 +4,11 @@ WORKDIR /app
 
 # Copy root package files
 COPY package*.json ./
-# Copy shared and service package files to mirrored structure
+# Copy all package files for all workspaces to ensure complete dependency graph
 COPY shared/package*.json ./shared/
+COPY frontend/package*.json ./frontend/
 COPY services/canvas-service/package*.json ./services/canvas-service/
+COPY services/room-service/package*.json ./services/room-service/
 
 # Install all dependencies (including dev dependencies) from root
 RUN npm install

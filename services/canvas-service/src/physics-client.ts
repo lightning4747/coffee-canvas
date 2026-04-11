@@ -87,22 +87,42 @@ export class PhysicsClient {
     return new Promise((resolve, reject) => {
       // 5 second timeout for physics simulation (Requirement 5.2 target is 100ms)
       const deadline = new Date();
-      deadline.setSeconds(deadline.getSeconds() + 5);
+      deadline.setMilliseconds(deadline.getMilliseconds() + 5000);
 
-      this.client.computeSpread(
-        request,
-        { deadline },
-        (error: grpc.ServiceError | null, response: StainResult) => {
-          if (error) {
-            console.error(
-              '[PhysicsClient] ComputeSpread Error:',
-              error.message
-            );
-            return reject(error);
+      try {
+        this.client.computeSpread(
+          request,
+          { deadline },
+          (error: grpc.ServiceError | null, response: StainResult) => {
+            if (error) {
+              const errorMsg =
+                error.code === grpc.status.DEADLINE_EXCEEDED
+                  ? 'Physics simulation timed out'
+                  : `Physics service error: ${error.message}`;
+
+              console.error(
+                `[PhysicsClient] ComputeSpread Error (Code: ${error.code}): ${errorMsg}`
+              );
+
+              // Resolve with empty result to prevent crashing the drawing session
+              // but allow the caller to know it failed
+              return reject(new Error(errorMsg));
+            }
+
+            if (!response || !response.stainPolygons) {
+              console.warn(
+                '[PhysicsClient] Received empty response from Physics Service'
+              );
+              return reject(new Error('Empty physics response'));
+            }
+
+            resolve(response);
           }
-          resolve(response);
-        }
-      );
+        );
+      } catch (fatalErr) {
+        console.error('[PhysicsClient] Fatal crash in gRPC call:', fatalErr);
+        reject(fatalErr);
+      }
     });
   }
 }

@@ -112,6 +112,13 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({
 
     newSocket.on('connect_error', error => {
       console.error('Socket connection error:', error.message);
+      setIsConnected(false);
+    });
+
+    // Handle application-level errors (e.g., Zod validation failures on server)
+    newSocket.on('error', (payload: { message: string }) => {
+      console.error('Socket application error:', payload.message);
+      // You could also trigger a toast notification here in the future
     });
 
     setSocket(newSocket);

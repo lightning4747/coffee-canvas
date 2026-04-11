@@ -217,8 +217,19 @@ export async function initializeCanvasService(
 
   // Configure Redis adapter for horizontal scaling (skip if 'mock' for testing)
   if (redisUrl !== 'mock') {
-    io.adapter(createAdapter(redisUrl));
-    console.log('Canvas Service initializing with Redis adapter...');
+    try {
+      // NOTE: socket.io-redis 6.x works best with host/port or separate clients.
+      // For now, we use the string but wrap in try-catch to prevent service crash.
+      io.adapter(createAdapter(redisUrl));
+      console.log(
+        `Canvas Service initialized with Redis adapter at ${redisUrl}`
+      );
+    } catch (adapterErr) {
+      console.error(
+        'Failed to initialize Redis adapter, falling back to in-memory:',
+        adapterErr
+      );
+    }
   } else {
     console.log(
       'Canvas Service initializing with default adapter (testing mode)'
@@ -265,8 +276,11 @@ export async function initializeCanvasService(
     }
     const { userId, roomId, displayName } = user;
 
+    // IMPORTANT: Join the room IMMEDIATELY so handlers can broadcast accurately.
+    await socket.join(roomId);
+
     console.log(
-      `User ${displayName} (${userId}) connected to room ${roomId} (socket: ${socket.id})`
+      `User ${displayName} (${userId}) connected and joined room ${roomId} (socket: ${socket.id})`
     );
 
     // --- Drawing Event Handlers ---
@@ -329,8 +343,11 @@ export async function initializeCanvasService(
         // Set expiration for safety (cleanup if stroke_end never arrives)
         await redisClient.expire(strokeKey, 3600); // 1 hour
 
-        // Broadcast to others in the room
+        // 7. Broadcast to others in the room
         socket.to(roomId).emit('stroke_begin', payload);
+        console.debug(
+          `[Sync] Broadcasted stroke_begin ${strokeId} to room ${roomId}`
+        );
       } catch (error) {
         console.error(`Error in stroke_begin for user ${userId}:`, error);
       }
@@ -369,6 +386,12 @@ export async function initializeCanvasService(
 
         // Broadcast to others
         socket.to(roomId).emit('stroke_segment', payload);
+        // Throttle logging for segments to avoid flooding
+        if (Math.random() < 0.1) {
+          console.debug(
+            `[Sync] Broadcasted stroke_segment for ${strokeId} (${payload.points.length} points)`
+          );
+        }
       } catch (error) {
         console.error(`Error in stroke_segment for user ${userId}:`, error);
       }
@@ -645,9 +668,6 @@ export async function initializeCanvasService(
     });
 
     // --- Connection / Presence Handlers ---
-
-    // Join the user to their specific room
-    socket.join(roomId);
 
     // Track user presence in Redis
     try {
