@@ -55,7 +55,7 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({
   const [socket, setSocket] = useState<Socket | null>(null);
   const [isConnected, setIsConnected] = useState(false);
   const { roomId, userId, setRoomInfo, brushSettings } = useStore();
-  const pendingEventsRef = useRef<{ event: string; payload: any }[]>([]);
+  const pendingEventsRef = useRef<{ event: string; payload: unknown }[]>([]);
   const lastCursorEmitRef = useRef<number>(0);
   const CURSOR_THROTTLE_MS = 50;
 

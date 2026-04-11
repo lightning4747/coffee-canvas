@@ -832,7 +832,14 @@ if (require.main === module) {
     ({ io, redisClient, dbManager, flushPendingTasks, getMetrics }) => {
       // Health check endpoint
       app.get('/health', async (req, res) => {
-        const health: any = {
+        interface HealthStatus {
+          status: string;
+          service: string;
+          timestamp: string;
+          dependencies: Record<string, string>;
+          metrics?: Record<string, unknown>;
+        }
+        const health: HealthStatus = {
           status: 'healthy',
           service: 'canvas-service',
           timestamp: new Date().toISOString(),
