@@ -4,6 +4,7 @@
  * and coordinates physics simulations via the Physics Service.
  */
 
+import compression from 'compression';
 import express from 'express';
 import { createServer, Server as HttpServer } from 'http';
 import { createClient } from 'redis';
@@ -43,7 +44,7 @@ const PORT = process.env.PORT || 3001;
 const REDIS_URL = process.env.REDIS_URL || 'redis://localhost:6379';
 const DATABASE_URL =
   process.env.DATABASE_URL ||
-  'postgres://postgres:postgres@localhost:5432/coffee_canvas';
+  'postgresql://postgres:password@localhost:5432/coffeecanvas';
 
 /**
  * Events emitted from the server to clients.
@@ -814,6 +815,7 @@ export async function initializeCanvasService(
 }
 
 const app = express();
+app.use(compression());
 const httpServer = createServer(app);
 
 // Prometheus metrics endpoint

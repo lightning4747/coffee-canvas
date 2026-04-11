@@ -1,8 +1,10 @@
 import { ApolloServer } from 'apollo-server-express';
+import compression from 'compression';
 import cors from 'cors';
 import express from 'express';
 import helmet from 'helmet';
 import { RateLimiterMemory } from 'rate-limiter-flexible';
+import { createClient } from 'redis';
 import { DatabaseManager } from '../../../shared/src';
 import { CanvasHistoryManager } from './canvas-history';
 import { resolvers } from './resolvers';
@@ -10,10 +12,12 @@ import { typeDefs } from './schema';
 import { metricsRegistry, graphqlQueryDuration, errorTotal } from './metrics';
 
 const app = express();
+app.use(compression());
 const PORT = process.env.PORT || 3002;
 const DATABASE_URL =
   process.env.DATABASE_URL ||
   'postgresql://postgres:password@localhost:5432/coffeecanvas';
+const REDIS_URL = process.env.REDIS_URL || 'redis://localhost:6379';
 
 // Rate limiting configuration
 const rateLimiter = new RateLimiterMemory({
@@ -70,9 +74,17 @@ async function startServer() {
     }
     console.log('Database connection established');
 
+    // Initialize Redis for caching
+    const redisClient = createClient({ url: REDIS_URL });
+    await redisClient.connect();
+    console.log('Redis connected for history caching');
+
     // Initialize canvas history manager
-    const canvasHistoryManager = new CanvasHistoryManager(db);
-    console.log('Canvas history manager initialized');
+    const canvasHistoryManager = new CanvasHistoryManager(
+      db,
+      redisClient as any
+    );
+    console.log('Canvas history manager initialized with caching');
 
     // Create Apollo Server
     const server = new ApolloServer({
@@ -164,6 +176,7 @@ async function startServer() {
       httpServer.close();
       await server.stop();
       await db.close();
+      await redisClient.quit();
       process.exit(0);
     };
 

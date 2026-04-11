@@ -1,9 +1,4 @@
-/**
- * Canvas History Replay and Reconstruction Utilities.
- * Provides logic for fetching stroke events from the database and
- * reconstructing the visual state of the canvas for specific spatial chunks.
- */
-
+import { createClient } from 'redis';
 import { Point2D, StrokeEvent } from '../../../shared/src';
 import { DatabaseManager } from '../../../shared/src';
 import { dbReadDuration } from './metrics';
@@ -145,9 +140,12 @@ export interface PaginatedCanvasHistory {
  */
 export class CanvasHistoryManager {
   /**
-   * Initializes the manager with a database instance.
+   * Initializes the manager with a database instance and optional Redis client for caching.
    */
-  constructor(private db: DatabaseManager) {}
+  constructor(
+    private db: DatabaseManager,
+    private redis?: ReturnType<typeof createClient>
+  ) {}
 
   /**
    * Fetches paginated stroke events for a set of spatial chunks.
@@ -179,7 +177,18 @@ export class CanvasHistoryManager {
     const safeLimit = Math.min(Math.max(limit, 1), 500); // Clamp between 1-500
 
     try {
-      // Get paginated events from database
+      // 1. Check Redis Cache first
+      const cacheKey = `history:room:${roomId}:chunks:${chunkKeys.sort().join(',')}:cursor:${cursor || 'start'}:limit:${safeLimit}`;
+
+      if (this.redis) {
+        const cached = await this.redis.get(cacheKey);
+        if (cached) {
+          console.debug(`[Cache] Hit for canvas history: ${cacheKey}`);
+          return JSON.parse(cached);
+        }
+      }
+
+      // 2. Get paginated events from database
       const cursorDate = cursor ? new Date(cursor) : undefined;
       const dbTimer = dbReadDuration.startTimer({
         query_type: 'get_canvas_history',
@@ -198,12 +207,22 @@ export class CanvasHistoryManager {
           ? result.events[result.events.length - 1].createdAt.toISOString()
           : undefined;
 
-      return {
+      const response: PaginatedCanvasHistory = {
         events: result.events,
         cursor: nextCursor,
         hasMore: result.hasMore,
         totalEvents: result.events.length,
       };
+
+      // 3. Cache the result (TTL 30 seconds - shorter because drawing is active)
+      if (this.redis && response.events.length > 0) {
+        await this.redis.set(cacheKey, JSON.stringify(response), {
+          EX: 30,
+        });
+        console.debug(`[Cache] Miss - Populated cache for: ${cacheKey}`);
+      }
+
+      return response;
     } catch (error) {
       console.error('Error fetching canvas history:', error);
       throw new Error('Failed to fetch canvas history');
