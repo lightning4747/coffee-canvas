@@ -45,7 +45,7 @@ services:
       - PORT=3001
       - REDIS_URL=redis://redis:6379
       - DATABASE_URL=postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@postgres:5432/${POSTGRES_DB:-coffeecanvas}
-      - PHYSICS_GRPC_URL=physics-service:50051
+      - PHYSICS_SERVICE_URL=physics-service:50051
       - JWT_SECRET=${JWT_SECRET:-dev-secret-key}
     depends_on:
       redis:
@@ -69,8 +69,11 @@ services:
       - NODE_ENV=${NODE_ENV:-development}
       - PORT=3002
       - DATABASE_URL=postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@postgres:5432/${POSTGRES_DB:-coffeecanvas}
+      - REDIS_URL=redis://redis:6379
       - JWT_SECRET=${JWT_SECRET:-dev-secret-key}
     depends_on:
+      redis:
+        condition: service_healthy
       postgres:
         condition: service_healthy
     volumes:
