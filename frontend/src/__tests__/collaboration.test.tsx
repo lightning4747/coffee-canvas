@@ -35,6 +35,7 @@ jest.mock('pixi.js', () => ({
     stage: { addChild: jest.fn() },
     view: document.createElement('canvas'),
     renderer: { resize: jest.fn() },
+    screen: { width: 800, height: 600 },
     destroy: jest.fn(),
   })),
   Graphics: jest.fn().mockImplementation(() => ({
@@ -45,12 +46,26 @@ jest.mock('pixi.js', () => ({
     endFill: jest.fn(),
     position: { set: jest.fn() },
     scale: { set: jest.fn() },
+    children: [],
+    getLocalBounds: jest.fn().mockReturnValue({
+      left: 0,
+      top: 0,
+      right: 100,
+      bottom: 100,
+    }),
   })),
   Container: jest.fn().mockImplementation(() => ({
     addChild: jest.fn(),
     position: { set: jest.fn() },
     scale: { set: jest.fn() },
     name: '',
+    children: [],
+    getLocalBounds: jest.fn().mockReturnValue({
+      left: 0,
+      top: 0,
+      right: 100,
+      bottom: 100,
+    }),
   })),
   BLEND_MODES: {
     DST_OUT: 'dst_out',
