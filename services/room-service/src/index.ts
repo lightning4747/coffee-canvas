@@ -5,7 +5,7 @@ import express from 'express';
 import helmet from 'helmet';
 import { RateLimiterMemory } from 'rate-limiter-flexible';
 import { createClient } from 'redis';
-import { DatabaseManager } from '../../../shared/src';
+import { createLogger, DatabaseManager } from '../../../shared/src';
 import { CanvasHistoryManager } from './canvas-history';
 import { resolvers } from './resolvers';
 import { typeDefs } from './schema';
@@ -18,6 +18,8 @@ const DATABASE_URL =
   process.env.DATABASE_URL ||
   'postgresql://postgres:password@localhost:5432/coffeecanvas';
 const REDIS_URL = process.env.REDIS_URL || 'redis://localhost:6379';
+
+const logger = createLogger('room-service');
 
 // Rate limiting configuration
 const rateLimiter = new RateLimiterMemory({
@@ -62,7 +64,7 @@ app.use(async (req, res, next) => {
 
 async function startServer() {
   try {
-    console.log('Room Service starting...');
+    logger.info('Room Service starting...');
 
     // Initialize database connection
     const db = new DatabaseManager(DATABASE_URL);
@@ -72,19 +74,19 @@ async function startServer() {
     if (!isHealthy) {
       throw new Error('Database connection failed');
     }
-    console.log('Database connection established');
+    logger.info('Database connection established');
 
     // Initialize Redis for caching
     const redisClient = createClient({ url: REDIS_URL });
     await redisClient.connect();
-    console.log('Redis connected for history caching');
+    logger.info('Redis connected for history caching');
 
     // Initialize canvas history manager
     const canvasHistoryManager = new CanvasHistoryManager(
       db,
       redisClient as any
     );
-    console.log('Canvas history manager initialized with caching');
+    logger.info('Canvas history manager initialized with caching');
 
     // Create Apollo Server
     const server = new ApolloServer({
@@ -163,16 +165,14 @@ async function startServer() {
 
     // Start HTTP server
     const httpServer = app.listen(PORT, () => {
-      console.log(`Room Service running on port ${PORT}`);
-      console.log(
-        `GraphQL endpoint: http://localhost:${PORT}${server.graphqlPath}`
-      );
-      console.log(`Health check: http://localhost:${PORT}/health`);
+      logger.info(`Room Service running on port ${PORT}`);
+      logger.info(`GraphQL endpoint: http://localhost:${PORT}/graphql`);
+      logger.info(`Health check: http://localhost:${PORT}/health`);
     });
 
     // Graceful shutdown
     const shutdown = async () => {
-      console.log('Room Service shutting down...');
+      logger.info('Room Service shutting down...');
       httpServer.close();
       await server.stop();
       await db.close();
@@ -183,7 +183,10 @@ async function startServer() {
     process.on('SIGTERM', shutdown);
     process.on('SIGINT', shutdown);
   } catch (error) {
-    console.error('Failed to start Room Service:', error);
+    logger.error(
+      'Room Service failed to initialize:',
+      error instanceof Error ? error.stack || error.message : String(error)
+    );
     process.exit(1);
   }
 }

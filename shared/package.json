@@ -20,6 +20,7 @@
     "ioredis": "^5.10.1",
     "pg": "^8.20.0",
     "protobufjs": "^7.2.0",
+    "winston": "^3.19.0",
     "zod": "^4.3.6"
   },
   "devDependencies": {

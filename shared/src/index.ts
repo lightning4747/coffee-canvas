@@ -6,3 +6,4 @@ export * from './utils';
 
 // Export validation schemas
 export * from './validation';
+export * from './utils/logger';
