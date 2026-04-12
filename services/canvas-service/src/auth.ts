@@ -5,7 +5,7 @@
  */
 
 import jwt from 'jsonwebtoken';
-import { JWTPayload } from '../../../shared/src';
+import { JWTPayload } from '@coffee-canvas/shared';
 
 /** Secret key used for verifying JWT signatures. */
 const JWT_SECRET =

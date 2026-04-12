@@ -13,7 +13,7 @@ import {
   Point2D,
   StainResult,
   StrokeData,
-} from '../../../shared/src';
+} from '@coffee-canvas/shared';
 
 const logger = createLogger('physics-client');
 
