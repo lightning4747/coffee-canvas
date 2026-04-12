@@ -9,7 +9,8 @@ import express from 'express';
 import { createServer, Server as HttpServer } from 'http';
 import { createClient } from 'redis';
 import { Server } from 'socket.io';
-import { createAdapter } from 'socket.io-redis';
+import { createAdapter } from '@socket.io/redis-adapter';
+import { Redis } from 'ioredis';
 import { v4 as uuidv4 } from 'uuid';
 import {
   calculateChunkKey,
@@ -258,12 +259,11 @@ export async function initializeCanvasService(
   // Configure Redis adapter for horizontal scaling (skip if 'mock' for testing)
   if (redisUrl !== 'mock') {
     try {
-      // Create dedicated clients for the adapter to ensure we can handle their errors
-      const pubClient = createClient({
-        url: redisUrl,
-        socket: {
-          reconnectStrategy: retries => Math.min(retries * 100, 3000),
-        },
+      // Create dedicated ioredis clients for the adapter to ensure we can handle their errors
+      // Requirements 1.3 & 1.5: Reliable cross-instance event distribution
+      const pubClient = new Redis(redisUrl, {
+        maxRetriesPerRequest: null, // Essential for the adapter
+        retryStrategy: times => Math.min(times * 100, 3000),
       });
       const subClient = pubClient.duplicate();
 
@@ -274,9 +274,7 @@ export async function initializeCanvasService(
       pubClient.on('error', handleAdapterError('Pub'));
       subClient.on('error', handleAdapterError('Sub'));
 
-      await Promise.all([pubClient.connect(), subClient.connect()]);
-
-      io.adapter(createAdapter({ pubClient, subClient }));
+      io.adapter(createAdapter(pubClient, subClient));
       logger.info(
         `Canvas Service initialized with Redis adapter at ${redisUrl}`
       );
@@ -996,7 +994,7 @@ async function bootstrap() {
 
       // 4. Disconnect from Redis
       try {
-        const disconnects = [redisClient.quit()];
+        const disconnects: Promise<any>[] = [redisClient.quit()];
         if (pubClient) disconnects.push(pubClient.quit());
         if (subClient) disconnects.push(subClient.quit());
 

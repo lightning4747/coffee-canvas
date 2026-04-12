@@ -13,9 +13,9 @@ export const PointSchema = z.object({
  * Validation for starting a new stroke.
  */
 export const StrokeBeginSchema = z.object({
-  roomId: z.string().uuid(),
-  userId: z.string().uuid(),
-  strokeId: z.string().uuid(),
+  roomId: z.string().min(1),
+  userId: z.string().min(1),
+  strokeId: z.string().min(1),
   tool: z.enum(['pen', 'brush', 'eraser', 'marker', 'calligraphy']),
   color: z
     .string()
@@ -28,9 +28,9 @@ export const StrokeBeginSchema = z.object({
  * Validation for adding segments to an active stroke.
  */
 export const StrokeSegmentSchema = z.object({
-  roomId: z.string().uuid(),
-  userId: z.string().uuid(),
-  strokeId: z.string().uuid(),
+  roomId: z.string().min(1),
+  userId: z.string().min(1),
+  strokeId: z.string().min(1),
   points: z.array(PointSchema).min(1).max(50), // Batch size limit
   timestamp: z.number().int().positive(),
 });
@@ -39,9 +39,9 @@ export const StrokeSegmentSchema = z.object({
  * Validation for finishing a stroke.
  */
 export const StrokeEndSchema = z.object({
-  roomId: z.string().uuid(),
-  userId: z.string().uuid(),
-  strokeId: z.string().uuid(),
+  roomId: z.string().min(1),
+  userId: z.string().min(1),
+  strokeId: z.string().min(1),
   timestamp: z.number().int().positive(),
 });
 
@@ -49,9 +49,9 @@ export const StrokeEndSchema = z.object({
  * Validation for triggering a coffee pour simulation.
  */
 export const CoffeePourSchema = z.object({
-  roomId: z.string().uuid(),
-  userId: z.string().uuid(),
-  pourId: z.string().uuid(),
+  roomId: z.string().min(1),
+  userId: z.string().min(1),
+  pourId: z.string().min(1),
   origin: PointSchema,
   intensity: z.number().min(0.1).max(10.0),
   timestamp: z.number().int().positive(),
@@ -61,8 +61,8 @@ export const CoffeePourSchema = z.object({
  * Validation for cursor movement.
  */
 export const CursorMoveSchema = z.object({
-  roomId: z.string().uuid(),
-  userId: z.string(), // May be short-form ID or UUID depending on session
+  roomId: z.string().min(1),
+  userId: z.string().min(1), // May be short-form ID or UUID depending on session
   userName: z.string().min(1).max(50),
   userColor: z.string().regex(/^#([A-Fa-f0-9]{6}|[A-Fa-f0-9]{3})$/),
   position: PointSchema,
