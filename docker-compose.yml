@@ -47,6 +47,7 @@ services:
       - DATABASE_URL=postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@postgres:5432/${POSTGRES_DB:-coffeecanvas}
       - PHYSICS_SERVICE_URL=physics-service:50051
       - JWT_SECRET=${JWT_SECRET:-dev-secret-key}
+      - TS_NODE_PROJECT=/app/tsconfig.json
     depends_on:
       redis:
         condition: service_healthy
@@ -56,8 +57,8 @@ services:
         condition: service_started
     volumes:
       - .:/app # Mount root so shared/ and services/ are both available
-      - /app/node_modules # Protect the internal node_modules
-    command: npm run dev -w services/canvas-service
+#      - /app/node_modules # Protect the internal node_modules
+    command: node -r tsconfig-paths/register services/canvas-service/dist/index.js
 
   room-service:
     build:
@@ -71,6 +72,7 @@ services:
       - DATABASE_URL=postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@postgres:5432/${POSTGRES_DB:-coffeecanvas}
       - REDIS_URL=redis://redis:6379
       - JWT_SECRET=${JWT_SECRET:-dev-secret-key}
+      - TS_NODE_PROJECT=/app/tsconfig.json
     depends_on:
       redis:
         condition: service_healthy
@@ -78,8 +80,8 @@ services:
         condition: service_healthy
     volumes:
       - .:/app
-      - /app/node_modules
-    command: npm run dev -w services/room-service
+#      - /app/node_modules
+    command: node -r tsconfig-paths/register services/room-service/dist/index.js
 
   physics-service:
     build:
@@ -90,6 +92,7 @@ services:
     environment:
       - PORT=50051
       - LOG_LEVEL=${LOG_LEVEL:-info}
+      - TS_NODE_PROJECT=/app/tsconfig.json
     volumes:
       - .:/app
     working_dir: /app/services/physics-service
@@ -111,7 +114,7 @@ services:
       - room-service
     volumes:
       - .:/app
-      - /app/node_modules
+#      - /app/node_modules
       - /app/frontend/.next
     command: npm run dev -w frontend
 

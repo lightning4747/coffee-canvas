@@ -13,7 +13,12 @@
     "resolveJsonModule": true,
     "incremental": true,
     "composite": true,
-    "downlevelIteration": true
+    "downlevelIteration": true,
+    "baseUrl": ".",
+    "paths": {
+      "@coffee-canvas/shared": ["shared/dist/index.js"],
+      "@coffee-canvas/shared/*": ["shared/dist/*"]
+    }
   },
   "references": [
     { "path": "./shared" },
