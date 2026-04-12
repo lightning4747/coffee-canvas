@@ -10,6 +10,7 @@ import { createServer, Server as HttpServer } from 'http';
 import { createClient } from 'redis';
 import { Server } from 'socket.io';
 import { createAdapter } from 'socket.io-redis';
+import { v4 as uuidv4 } from 'uuid';
 import {
   calculateChunkKey,
   CoffeePourPayload,
@@ -27,6 +28,7 @@ import {
   StrokeEndSchema,
   CoffeePourSchema,
   CursorMoveSchema,
+  createLogger,
 } from '@coffee-canvas/shared';
 import { RateLimiterRedis } from 'rate-limiter-flexible';
 import { validateJWT } from './auth';
@@ -45,6 +47,8 @@ const REDIS_URL = process.env.REDIS_URL || 'redis://localhost:6379';
 const DATABASE_URL =
   process.env.DATABASE_URL ||
   'postgresql://postgres:password@localhost:5432/coffeecanvas';
+
+const logger = createLogger('canvas-service');
 
 /**
  * Events emitted from the server to clients.
@@ -189,7 +193,7 @@ export async function initializeCanvasService(
 
   try {
     await redisClient.connect();
-    console.log('Connected to Redis for stroke caching');
+    logger.info('Connected to Redis for stroke caching');
   } catch (err) {
     console.error('Failed to connect to Redis:', err);
     throw err;
@@ -483,79 +487,77 @@ export async function initializeCanvasService(
         await redisClient.expire(`canvas:stroke:${strokeId}:points`, 300);
 
         // --- ASYNCHRONOUS PERSISTENCE (Task 5.6) ---
-        // We do this after the broadcast to maintain zero-latency for users
-        setImmediate(() => {
-          const p = (async () => {
-            try {
-              const dbTimer = dbWriteDuration.startTimer({
-                operation_type: 'stroke_persistence',
-              });
-              // 1. Fetch metadata and all points
-              const [strokeMeta, pointsJson] = await Promise.all([
-                redisClient.hGetAll(`canvas:stroke:${strokeId}`),
-                redisClient.lRange(`canvas:stroke:${strokeId}:points`, 0, -1),
-              ]);
+        // We do this asynchronously to maintain zero-latency for users
+        const p = (async () => {
+          try {
+            const dbTimer = dbWriteDuration.startTimer({
+              operation_type: 'stroke_persistence',
+            });
+            // 1. Fetch metadata and all points
+            const [strokeMeta, pointsJson] = await Promise.all([
+              redisClient.hGetAll(`canvas:stroke:${strokeId}`),
+              redisClient.lRange(`canvas:stroke:${strokeId}:points`, 0, -1),
+            ]);
 
-              if (!strokeMeta.roomId || pointsJson.length === 0) return;
+            if (!strokeMeta.roomId || pointsJson.length === 0) return;
 
-              const points = pointsJson.map(
-                (p: string) => JSON.parse(p) as { x: number; y: number }
-              );
-              const firstPoint = points[0];
-              const chunkKey = calculateChunkKey(firstPoint);
+            const points = pointsJson.map(
+              (p: string) => JSON.parse(p) as { x: number; y: number }
+            );
+            const firstPoint = points[0];
+            const chunkKey = calculateChunkKey(firstPoint);
 
-              // 2. Prepare batch events
-              const events: Omit<StrokeEvent, 'id' | 'createdAt'>[] = [];
+            // 2. Prepare batch events
+            const events: Omit<StrokeEvent, 'id' | 'createdAt'>[] = [];
 
-              // Begin event
-              events.push({
-                roomId,
-                strokeId,
-                userId,
-                eventType: 'begin',
-                chunkKey,
-                data: {
-                  tool: strokeMeta.tool,
-                  color: strokeMeta.color,
-                  width: parseFloat(strokeMeta.width),
-                },
-              });
+            // Begin event
+            events.push({
+              roomId,
+              strokeId,
+              userId,
+              eventType: 'begin',
+              chunkKey,
+              data: {
+                tool: strokeMeta.tool,
+                color: strokeMeta.color,
+                width: parseFloat(strokeMeta.width),
+              },
+            });
 
-              // Segment event (contains all points for the history record)
-              events.push({
-                roomId,
-                strokeId,
-                userId,
-                eventType: 'segment',
-                chunkKey,
-                data: { points },
-              });
+            // Segment event (contains all points for the history record)
+            events.push({
+              roomId,
+              strokeId,
+              userId,
+              eventType: 'segment',
+              chunkKey,
+              data: { points },
+            });
 
-              // End event
-              events.push({
-                roomId,
-                strokeId,
-                userId,
-                eventType: 'end',
-                chunkKey,
-                data: {},
-              });
+            // End event
+            events.push({
+              roomId,
+              strokeId,
+              userId,
+              eventType: 'end',
+              chunkKey,
+              data: {},
+            });
 
-              // 3. Batch insert to PostgreSQL
-              await dbManager.batchInsertStrokeEvents(events);
-              dbTimer();
-              totalStrokesSaved++;
-            } catch (err) {
-              console.error(`Failed to persist stroke ${strokeId}:`, err);
-              errorTotal.inc({
-                error_type: 'db_persistence_error',
-                room_id: roomId,
-              });
-            }
-          })();
-          pendingPersistenceTasks.add(p);
-          p.finally(() => pendingPersistenceTasks.delete(p));
-        });
+            // 3. Batch insert to PostgreSQL
+            await dbManager.batchInsertStrokeEvents(events);
+            dbTimer();
+            totalStrokesSaved++;
+          } catch (err) {
+            console.error(`Failed to persist stroke ${strokeId}:`, err);
+            errorTotal.inc({
+              error_type: 'db_persistence_error',
+              room_id: roomId,
+            });
+          }
+        })();
+        pendingPersistenceTasks.add(p);
+        p.finally(() => pendingPersistenceTasks.delete(p));
 
         // Broadcast to others
         socket.to(roomId).emit('stroke_end', payload);
@@ -579,6 +581,7 @@ export async function initializeCanvasService(
         room_id: roomId,
       });
       const startTimestamp = performance.now();
+      const pourId = payload.pourId;
       try {
         // 1. Rate Limiting (1 per 3 seconds)
         try {
@@ -601,7 +604,7 @@ export async function initializeCanvasService(
           return socket.disconnect();
         }
 
-        const { pourId, origin, intensity } = payload;
+        const { origin, intensity } = payload;
 
         // 1. Fetch nearby/active strokes for simulation context
         const activeStrokeIds = (await redisClient.sMembers(
@@ -670,38 +673,36 @@ export async function initializeCanvasService(
         // --- ASYNCHRONOUS PERSISTENCE (Task 5.6) ---
         // NOTE: queued BEFORE broadcast so persistence runs even if broadcast fails
         const chunkKey = calculateChunkKey(origin);
-        setImmediate(() => {
-          const p = (async () => {
-            try {
-              const dbTimer = dbWriteDuration.startTimer({
-                operation_type: 'stain_persistence',
-              });
-              await dbManager.insertStrokeEvent({
-                roomId,
-                strokeId: pourId, // Use pourId as strokeId for stains
-                userId,
-                eventType: 'stain',
-                chunkKey,
-                data: {
-                  stainPolygons: result.stainPolygons,
-                  strokeMutations: result.strokeMutations,
-                },
-              });
-              dbTimer();
-              console.log(
-                `Persisted stain ${pourId} to PostgreSQL (chunk: ${chunkKey})`
-              );
-            } catch (err) {
-              console.error(`Failed to persist stain ${pourId}:`, err);
-              errorTotal.inc({
-                error_type: 'db_persistence_error',
-                room_id: roomId,
-              });
-            }
-          })();
-          pendingPersistenceTasks.add(p);
-          p.finally(() => pendingPersistenceTasks.delete(p));
-        });
+        const p = (async () => {
+          try {
+            const dbTimer = dbWriteDuration.startTimer({
+              operation_type: 'stain_persistence',
+            });
+            await dbManager.insertStrokeEvent({
+              roomId,
+              strokeId: pourId, // Use pourId as strokeId for stains
+              userId,
+              eventType: 'stain',
+              chunkKey,
+              data: {
+                stainPolygons: result.stainPolygons,
+                strokeMutations: result.strokeMutations,
+              },
+            });
+            dbTimer();
+            console.log(
+              `Persisted stain ${pourId} to PostgreSQL (chunk: ${chunkKey})`
+            );
+          } catch (err) {
+            console.error(`Failed to persist stain ${pourId}:`, err);
+            errorTotal.inc({
+              error_type: 'db_persistence_error',
+              room_id: roomId,
+            });
+          }
+        })();
+        pendingPersistenceTasks.add(p);
+        p.finally(() => pendingPersistenceTasks.delete(p));
 
         // 4. Broadcast stain result to room participants
         try {
@@ -722,9 +723,34 @@ export async function initializeCanvasService(
           (performance.now() - startTimestamp) / 1000
         );
       } catch (error) {
-        console.error(`Error in coffee_pour for user ${userId}:`, error);
+        logger.error(`Error in coffee_pour for user ${userId}:`, error);
+
+        // Graceful Degradation (Task 11.1): Fallback to a simple circular stain
+        const fallbackResult: StainResult = {
+          pourId,
+          stainPolygons: [
+            {
+              id: uuidv4(),
+              path: Array.from({ length: 12 }).map((_, i) => ({
+                x:
+                  (payload.origin as Point2D).x +
+                  Math.cos((i * Math.PI) / 6) * payload.intensity * 2,
+                y:
+                  (payload.origin as Point2D).y +
+                  Math.sin((i * Math.PI) / 6) * payload.intensity * 2,
+              })),
+              color: '#4B2C20',
+              opacity: 0.6,
+            },
+          ],
+          strokeMutations: [],
+          computationMs: 0,
+        };
+
+        io.to(roomId).emit('stain_result', fallbackResult);
+
         socket.emit('error', {
-          message: 'Failed to compute coffee pour simulation',
+          message: 'Physics service unavailable - using simplified simulation',
         });
       }
     });
@@ -829,103 +855,117 @@ app.get('/metrics', async (req, res) => {
 });
 
 // Initialize and start service
-if (require.main === module) {
-  initializeCanvasService(httpServer).then(
-    ({ io, redisClient, dbManager, flushPendingTasks, getMetrics }) => {
-      // Health check endpoint
-      app.get('/health', async (req, res) => {
-        interface HealthStatus {
-          status: string;
-          service: string;
-          timestamp: string;
-          dependencies: Record<string, string>;
-          metrics?: Record<string, unknown>;
-        }
-        const health: HealthStatus = {
-          status: 'healthy',
-          service: 'canvas-service',
-          timestamp: new Date().toISOString(),
-          dependencies: {},
-        };
+/**
+ * Bootstraps the Canvas Service.
+ */
+async function bootstrap() {
+  try {
+    const { io, redisClient, dbManager, flushPendingTasks, getMetrics } =
+      await initializeCanvasService(httpServer);
 
-        try {
-          // 1. Check Redis
-          const redisPing = await redisClient.ping();
-          health.dependencies.redis = redisPing === 'PONG' ? 'UP' : 'DOWN';
-
-          // 2. Check Database
-          const dbHealthy = await dbManager.healthCheck();
-          health.dependencies.database = dbHealthy ? 'UP' : 'DOWN';
-
-          // 3. Check Physics Service (Basic connectivity)
-          health.dependencies.physics = 'UP'; // Verified during initialization
-
-          // Overall status
-          if (
-            health.dependencies.redis === 'DOWN' ||
-            health.dependencies.database === 'DOWN'
-          ) {
-            health.status = 'degraded';
-            res.status(503);
-          } else {
-            res.status(200);
-          }
-
-          // Add basic metrics info
-          const metrics = getMetrics();
-          health.metrics = {
-            ...metrics,
-            uptime: process.uptime(),
-          };
-
-          res.json(health);
-        } catch (err) {
-          res.status(500).json({
-            status: 'unhealthy',
-            error: err instanceof Error ? err.message : String(err),
-          });
-        }
-      });
-
-      httpServer.listen(PORT, () => {
-        console.log(`Canvas Service running on port ${PORT}`);
-        console.log(`Health check: http://localhost:${PORT}/health`);
-      });
-
-      // Graceful shutdown
-      const shutdown = async () => {
-        console.log('Canvas Service shutting down...');
-
-        // 1. Stop accepting new connections and close existing ones
-        await new Promise<void>(resolve => {
-          httpServer.close(() => {
-            console.log('HTTP server closed.');
-            resolve();
-          });
-          // Force close after a short delay if many connections are hanging
-          setTimeout(() => resolve(), 2000);
-        });
-
-        // 2. Shut down Socket.IO (disconnects clients)
-        await io.close();
-
-        // 3. Flush pending persistence tasks
-        await flushPendingTasks();
-
-        // 4. Disconnect from Redis
-        try {
-          await redisClient.disconnect();
-          console.log('Disconnected from Redis.');
-        } catch (err) {
-          console.error('Error during Redis disconnect:', err);
-        }
-
-        console.log('Shutdown complete.');
-        process.exit(0);
+    // Health check endpoint
+    app.get('/health', async (req, res) => {
+      interface HealthStatus {
+        status: string;
+        service: string;
+        timestamp: string;
+        dependencies: Record<string, string>;
+        metrics?: Record<string, unknown>;
+      }
+      const health: HealthStatus = {
+        status: 'healthy',
+        service: 'canvas-service',
+        timestamp: new Date().toISOString(),
+        dependencies: {},
       };
 
-      process.on('SIGTERM', shutdown);
-      process.on('SIGINT', shutdown);
-    }
-  );
+      try {
+        // 1. Check Redis
+        const redisPing = await redisClient.ping();
+        health.dependencies.redis = redisPing === 'PONG' ? 'UP' : 'DOWN';
+
+        // 2. Check Database
+        const dbHealthy = await dbManager.healthCheck();
+        health.dependencies.database = dbHealthy ? 'UP' : 'DOWN';
+
+        // 3. Check Physics Service (Basic connectivity)
+        health.dependencies.physics = 'UP'; // Verified during initialization
+
+        // Overall status
+        if (
+          health.dependencies.redis === 'DOWN' ||
+          health.dependencies.database === 'DOWN'
+        ) {
+          health.status = 'degraded';
+          res.status(503);
+        } else {
+          res.status(200);
+        }
+
+        // Add basic metrics info
+        const metrics = getMetrics();
+        health.metrics = {
+          ...metrics,
+          uptime: process.uptime(),
+        };
+
+        res.json(health);
+      } catch (err) {
+        res.status(500).json({
+          status: 'unhealthy',
+          error: err instanceof Error ? err.message : String(err),
+        });
+      }
+    });
+
+    httpServer.listen(PORT, () => {
+      logger.info(`Canvas Service running on port ${PORT}`);
+      logger.info(`Health check: http://localhost:${PORT}/health`);
+    });
+
+    // Graceful shutdown
+    const shutdown = async () => {
+      logger.info('Canvas Service shutting down...');
+
+      // 1. Stop accepting new connections and close existing ones
+      await new Promise<void>(resolve => {
+        httpServer.close(() => {
+          console.log('HTTP server closed.');
+          resolve();
+        });
+        // Force close after a short delay if many connections are hanging
+        setTimeout(() => resolve(), 2000);
+      });
+
+      // 2. Shut down Socket.IO (disconnects clients)
+      await io.close();
+
+      // 3. Flush pending persistence tasks
+      await flushPendingTasks();
+
+      // 4. Disconnect from Redis
+      try {
+        await redisClient.disconnect();
+        console.log('Disconnected from Redis.');
+      } catch (err) {
+        console.error('Error during Redis disconnect:', err);
+      }
+
+      console.log('Shutdown complete.');
+      process.exit(0);
+    };
+
+    process.on('SIGTERM', shutdown);
+    process.on('SIGINT', shutdown);
+  } catch (err) {
+    logger.error(
+      'Canvas Service failed to initialize:',
+      err instanceof Error ? err.stack || err.message : String(err)
+    );
+    process.exit(1);
+  }
+}
+
+if (require.main === module) {
+  bootstrap();
 }

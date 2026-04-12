@@ -1,6 +1,5 @@
 import { EventEmitter } from 'events';
 import { initializeCanvasService } from '../index';
-import { physicsClient } from '../physics-client';
 
 jest.mock('rate-limiter-flexible', () => ({
   RateLimiterRedis: jest.fn().mockImplementation(() => ({
@@ -50,24 +49,7 @@ interface MockSocket extends EventEmitter {
   to: jest.Mock;
 }
 
-// Mock Physics Client
-jest.mock('../physics-client', () => ({
-  physicsClient: {
-    computeSpread: jest.fn().mockResolvedValue({
-      pourId: '550e8400-e29b-41d4-a716-446655440003',
-      stainPolygons: [
-        {
-          id: 'stain-1',
-          path: [{ x: 5, y: 5 }],
-          opacity: 0.8,
-          color: '#442200',
-        },
-      ],
-      strokeMutations: [],
-      computationMs: 15,
-    }),
-  },
-}));
+// Mock Physics Client - Handled locally in beforeEach and initializeCanvasService
 
 jest.mock('@coffee-canvas/shared', () => {
   const original = jest.requireActual('@coffee-canvas/shared');
@@ -118,19 +100,43 @@ jest.mock('../auth', () => ({
 
 describe('Physics Integration Verification', () => {
   let io: EventEmitter & { to: jest.Mock; close?: (cb?: () => void) => void };
+  let flushPendingTasks: (timeoutMs?: number) => Promise<void>;
+  let mockPhysicsClient: { computeSpread: jest.Mock };
 
   beforeEach(async () => {
     const mockHttpServer = new EventEmitter();
+
+    // Explicitly define mock behavior for each test run to ensure reference integrity
+    mockPhysicsClient = {
+      computeSpread: jest.fn().mockResolvedValue({
+        pourId: '550e8400-e29b-41d4-a716-446655440003',
+        stainPolygons: [
+          {
+            id: 'stain-1',
+            path: [{ x: 5, y: 5 }],
+            opacity: 0.8,
+            color: '#442200',
+          },
+        ],
+        strokeMutations: [],
+        computationMs: 15,
+      }),
+    };
+
     const result = await initializeCanvasService(
       mockHttpServer as unknown as Parameters<
         typeof initializeCanvasService
       >[0],
-      { redisUrl: 'mock' }
+      {
+        redisUrl: 'mock',
+        physicsClient: mockPhysicsClient as any,
+      }
     );
     io = result.io as unknown as EventEmitter & {
       to: jest.Mock;
       close: (cb?: () => void) => void;
     };
+    flushPendingTasks = result.flushPendingTasks;
     // Note: io.to and io.close are already mocked by the global jest.mock
   });
 
@@ -163,6 +169,8 @@ describe('Physics Integration Verification', () => {
       (s: EventEmitter) => void
     >;
     connectionListeners.forEach(l => l(socket));
+    // wait for connection handler to register listeners (Task 8.2 synchronization)
+    await new Promise(resolve => setTimeout(resolve, 50));
 
     // Payload for coffee_pour
     const pourPayload = {
@@ -177,8 +185,24 @@ describe('Physics Integration Verification', () => {
     // Trigger coffee_pour
     socket.emit('coffee_pour', pourPayload);
 
-    // Wait for the async handler to finish
-    await new Promise(resolve => setTimeout(resolve, 200));
+    // Wait for the simulation to complete and broadcast (Task 8.2 deterministic sync)
+    // We poll the mock calls since we're using a mocked Socket.IO
+    await new Promise((resolve, reject) => {
+      const start = Date.now();
+      const check = () => {
+        if (mockPhysicsClient.computeSpread.mock.calls.length > 0) {
+          resolve(true);
+        } else if (Date.now() - start > 2000) {
+          reject(new Error('Timeout waiting for computeSpread call'));
+        } else {
+          setTimeout(check, 20);
+        }
+      };
+      check();
+    });
+
+    // Also wait for background persistence tasks
+    await flushPendingTasks();
 
     // Assertions
     // 1. Should have fetched active strokes from Redis
@@ -187,7 +211,7 @@ describe('Physics Integration Verification', () => {
     );
 
     // 2. Should have called physics client with correct data
-    expect(physicsClient.computeSpread).toHaveBeenCalledWith(
+    expect(mockPhysicsClient.computeSpread).toHaveBeenCalledWith(
       roomId,
       '550e8400-e29b-41d4-a716-446655440003',
       pourPayload.origin,

@@ -115,6 +115,7 @@ describe('Persistence Integration Verification', () => {
     batchInsertStrokeEvents: jest.Mock;
     insertStrokeEvent: jest.Mock;
   };
+  let flushTasks: (timeoutMs?: number) => Promise<void>;
 
   beforeEach(async () => {
     jest.clearAllMocks();
@@ -126,6 +127,7 @@ describe('Persistence Integration Verification', () => {
       { redisUrl: 'mock' }
     );
     io = result.io as unknown as Server;
+    flushTasks = result.flushPendingTasks;
 
     // Get the mocked DatabaseManager instance (it's the latest one created)
     const instances = (DatabaseManager as jest.Mock).mock.results;
@@ -154,8 +156,10 @@ describe('Persistence Integration Verification', () => {
 
     // Trigger connection
     io.emit('connection', socket);
+    // Wait for async connection handler to register socket listeners
+    await new Promise(resolve => setTimeout(resolve, 50));
 
-    // Simulate stroke_end
+    // 2. Emit stroke_end
     socket.emit('stroke_end', {
       roomId: '550e8400-e29b-41d4-a716-446655440000',
       userId: '550e8400-e29b-41d4-a716-446655440001',
@@ -163,8 +167,9 @@ describe('Persistence Integration Verification', () => {
       timestamp: Date.now(),
     });
 
-    // 3. Wait for async persistence
-    await new Promise(resolve => setTimeout(resolve, 50));
+    // 3. Wait for async persistence registration + execution
+    await new Promise(resolve => setImmediate(resolve));
+    await flushTasks();
 
     expect(dbManager.batchInsertStrokeEvents).toHaveBeenCalled();
     const events = dbManager.batchInsertStrokeEvents.mock
@@ -211,8 +216,10 @@ describe('Persistence Integration Verification', () => {
 
     // Trigger connection
     io.emit('connection', socket);
+    // Wait for async connection handler to register socket listeners
+    await new Promise(resolve => setTimeout(resolve, 50));
 
-    // Simulate coffee_pour
+    // 2. Emit coffee_pour
     socket.emit('coffee_pour', {
       roomId: '550e8400-e29b-41d4-a716-446655440000',
       userId: '550e8400-e29b-41d4-a716-446655440001',
@@ -222,8 +229,9 @@ describe('Persistence Integration Verification', () => {
       timestamp: Date.now(),
     });
 
-    // 3. Wait for async physics compute + async persistence
-    await new Promise(resolve => setTimeout(resolve, 150));
+    // 3. Wait for async physics compute + async persistence registration + execution
+    await new Promise(resolve => setImmediate(resolve));
+    await flushTasks();
 
     expect(dbManager.insertStrokeEvent).toHaveBeenCalled();
     const event = dbManager.insertStrokeEvent.mock.calls[0][0] as StrokeEvent;

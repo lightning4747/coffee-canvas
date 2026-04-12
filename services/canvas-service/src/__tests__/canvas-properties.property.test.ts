@@ -505,7 +505,7 @@ describe('Canvas Service Property Tests', () => {
         fc.uuid(), // pourId
         fc.uuid(), // roomId
         pointArbitrary, // origin
-        fc.double({ min: 1.0, max: 10.0 }), // intensity
+        fc.double({ noNaN: true, min: 1.0, max: 10.0 }), // intensity
         async (pourId, roomId, origin, intensity) => {
           const { socket } = createMockSocket(
             'socket-s',

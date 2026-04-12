@@ -7,7 +7,15 @@
 import * as grpc from '@grpc/grpc-js';
 import * as protoLoader from '@grpc/proto-loader';
 import path from 'path';
-import { Point2D, StainResult, StrokeData } from '../../../shared/src';
+import CircuitBreaker from 'opossum';
+import {
+  createLogger,
+  Point2D,
+  StainResult,
+  StrokeData,
+} from '../../../shared/src';
+
+const logger = createLogger('physics-client');
 
 const PROTO_PATH = path.resolve(
   __dirname,
@@ -48,7 +56,26 @@ export class PhysicsClient {
       PHYSICS_SERVICE_URL,
       grpc.credentials.createInsecure()
     );
+
+    // Initialize Circuit Breaker (Task 11.1)
+    this.breaker = new CircuitBreaker(this._invokeComputeSpread.bind(this), {
+      timeout: 5000,
+      errorThresholdPercentage: 50,
+      resetTimeout: 10000,
+    });
+
+    this.breaker.on('open', () =>
+      logger.warn('[CircuitBreaker] Physics Service breaker OPEN')
+    );
+    this.breaker.on('halfOpen', () =>
+      logger.info('[CircuitBreaker] Physics Service breaker HALF-OPEN')
+    );
+    this.breaker.on('close', () =>
+      logger.info('[CircuitBreaker] Physics Service breaker CLOSED')
+    );
   }
+
+  private breaker: CircuitBreaker<[any], StainResult>;
 
   /**
    * Computes the spread of a coffee pour simulation based on nearby canvas geometry.
@@ -73,8 +100,8 @@ export class PhysicsClient {
       pour_id: pourId,
       origin,
       intensity,
-      viscosity: 0.5, // Default viscosity
-      simulation_steps: 15, // Default simulation steps
+      viscosity: 0.5,
+      simulation_steps: 15,
       nearby_strokes: strokes.map(s => ({
         stroke_id: s.strokeId,
         color: s.color,
@@ -84,6 +111,18 @@ export class PhysicsClient {
       })),
     };
 
+    try {
+      return await this.breaker.fire(request);
+    } catch (err) {
+      logger.error('Physics simulation failed (Breaker):', err);
+      throw err;
+    }
+  }
+
+  /**
+   * Internal method for gRPC invocation, wrapped by the circuit breaker.
+   */
+  private async _invokeComputeSpread(request: any): Promise<StainResult> {
     return new Promise((resolve, reject) => {
       // 5 second timeout for physics simulation (Requirement 5.2 target is 100ms)
       const deadline = new Date();
@@ -100,7 +139,7 @@ export class PhysicsClient {
                   ? 'Physics simulation timed out'
                   : `Physics service error: ${error.message}`;
 
-              console.error(
+              logger.error(
                 `[PhysicsClient] ComputeSpread Error (Code: ${error.code}): ${errorMsg}`
               );
 
@@ -110,7 +149,7 @@ export class PhysicsClient {
             }
 
             if (!response || !response.stainPolygons) {
-              console.warn(
+              logger.warn(
                 '[PhysicsClient] Received empty response from Physics Service'
               );
               return reject(new Error('Empty physics response'));
@@ -120,7 +159,7 @@ export class PhysicsClient {
           }
         );
       } catch (fatalErr) {
-        console.error('[PhysicsClient] Fatal crash in gRPC call:', fatalErr);
+        logger.error('[PhysicsClient] Fatal crash in gRPC call:', fatalErr);
         reject(fatalErr);
       }
     });

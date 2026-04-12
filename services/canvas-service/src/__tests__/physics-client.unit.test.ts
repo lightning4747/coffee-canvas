@@ -13,6 +13,10 @@ jest.mock('@grpc/grpc-js', () => ({
   credentials: {
     createInsecure: jest.fn(),
   },
+  status: {
+    DEADLINE_EXCEEDED: 4,
+    INTERNAL: 13,
+  },
 }));
 
 jest.mock('@grpc/proto-loader', () => ({
@@ -115,7 +119,7 @@ describe('PhysicsClient Unit Tests', () => {
   it('should include nearby strokes in the request', async () => {
     mockGrpcClient.computeSpread.mockImplementation(
       (req: any, options: any, callback: any) => {
-        callback(null, {});
+        callback(null, { stainPolygons: [] });
       }
     );
 
