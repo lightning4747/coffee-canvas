@@ -5,7 +5,7 @@ import express from 'express';
 import helmet from 'helmet';
 import { RateLimiterMemory } from 'rate-limiter-flexible';
 import { createClient } from 'redis';
-import { createLogger, DatabaseManager } from '../../../shared/src';
+import { createLogger, DatabaseManager } from '@coffee-canvas/shared';
 import { CanvasHistoryManager } from './canvas-history';
 import { resolvers } from './resolvers';
 import { typeDefs } from './schema';

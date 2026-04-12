@@ -5,7 +5,7 @@
  */
 
 import jwt from 'jsonwebtoken';
-import { JWTPayload, Room, User } from '../../../shared/src/types/index';
+import { JWTPayload, Room, User } from '@coffee-canvas/shared';
 
 /** Secret key used for signing and verifying JWTs. */
 const JWT_SECRET =

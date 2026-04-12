@@ -1,6 +1,6 @@
 import { createClient } from 'redis';
-import { Point2D, StrokeEvent } from '../../../shared/src';
-import { DatabaseManager } from '../../../shared/src';
+import { Point2D, StrokeEvent } from '@coffee-canvas/shared';
+import { DatabaseManager } from '@coffee-canvas/shared';
 import { dbReadDuration } from './metrics';
 
 /**

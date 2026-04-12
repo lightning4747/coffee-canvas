@@ -14,8 +14,8 @@ import {
   CreateRoomSchema,
   JoinRoomSchema,
 } from '@coffee-canvas/shared';
-import { DatabaseManager } from '../../../shared/src/utils/database';
-import { generateRoomCode } from '../../../shared/src/utils/index';
+import { DatabaseManager } from '@coffee-canvas/shared';
+import { generateRoomCode } from '@coffee-canvas/shared';
 import { extractJWTFromRequest, generateJWT, validateJWT } from './auth';
 import { CanvasHistoryManager } from './canvas-history';
 import { assignUserColor } from './color-assignment';
