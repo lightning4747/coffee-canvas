@@ -173,12 +173,35 @@ export async function initializeCanvasService(
 
   // 1. Initialize Redis Client
   const redisClient =
-    normalizedOptions.redisClient || createClient({ url: redisUrl });
+    normalizedOptions.redisClient ||
+    createClient({
+      url: redisUrl,
+      socket: {
+        reconnectStrategy: retries => {
+          if (retries > 10) {
+            logger.error('Redis reconnection failed after 10 attempts');
+            return new Error('Redis reconnection failed');
+          }
+          const delay = Math.min(retries * 100, 3000);
+          logger.warn(
+            `Redis reconnecting in ${delay}ms... (attempt ${retries})`
+          );
+          return delay;
+        },
+      },
+    });
 
   if (!normalizedOptions.redisClient) {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     (redisClient as any).on('error', (err: Error) =>
-      console.error('Redis Client Error', err)
+      logger.error('Redis Client Error:', err)
+    );
+    (redisClient as any).on('connect', () =>
+      logger.info('Redis client connecting...')
+    );
+    (redisClient as any).on('ready', () => logger.info('Redis client ready'));
+    (redisClient as any).on('reconnecting', () =>
+      logger.warn('Redis client reconnecting...')
     );
   }
 
@@ -235,20 +258,36 @@ export async function initializeCanvasService(
   // Configure Redis adapter for horizontal scaling (skip if 'mock' for testing)
   if (redisUrl !== 'mock') {
     try {
-      // NOTE: socket.io-redis 6.x works best with host/port or separate clients.
-      // For now, we use the string but wrap in try-catch to prevent service crash.
-      io.adapter(createAdapter(redisUrl));
-      console.log(
+      // Create dedicated clients for the adapter to ensure we can handle their errors
+      const pubClient = createClient({
+        url: redisUrl,
+        socket: {
+          reconnectStrategy: retries => Math.min(retries * 100, 3000),
+        },
+      });
+      const subClient = pubClient.duplicate();
+
+      const handleAdapterError = (type: string) => (err: Error) => {
+        logger.error(`Redis Adapter ${type} Error:`, err);
+      };
+
+      pubClient.on('error', handleAdapterError('Pub'));
+      subClient.on('error', handleAdapterError('Sub'));
+
+      await Promise.all([pubClient.connect(), subClient.connect()]);
+
+      io.adapter(createAdapter({ pubClient, subClient }));
+      logger.info(
         `Canvas Service initialized with Redis adapter at ${redisUrl}`
       );
     } catch (adapterErr) {
-      console.error(
+      logger.error(
         'Failed to initialize Redis adapter, falling back to in-memory:',
         adapterErr
       );
     }
   } else {
-    console.log(
+    logger.info(
       'Canvas Service initializing with default adapter (testing mode)'
     );
   }
@@ -834,6 +873,10 @@ export async function initializeCanvasService(
   return {
     io,
     redisClient,
+    pubClient:
+      redisUrl !== 'mock' ? (io.adapter() as any).pubClient || null : null,
+    subClient:
+      redisUrl !== 'mock' ? (io.adapter() as any).subClient || null : null,
     dbManager,
     flushPendingTasks,
     getMetrics: () => ({ totalStrokesSaved, totalPhysicsSimulations }),
@@ -860,8 +903,16 @@ app.get('/metrics', async (req, res) => {
  */
 async function bootstrap() {
   try {
-    const { io, redisClient, dbManager, flushPendingTasks, getMetrics } =
-      await initializeCanvasService(httpServer);
+    const result = await initializeCanvasService(httpServer);
+    const {
+      io,
+      redisClient,
+      dbManager,
+      flushPendingTasks,
+      getMetrics,
+      pubClient,
+      subClient,
+    } = result;
 
     // Health check endpoint
     app.get('/health', async (req, res) => {
@@ -945,8 +996,12 @@ async function bootstrap() {
 
       // 4. Disconnect from Redis
       try {
-        await redisClient.disconnect();
-        console.log('Disconnected from Redis.');
+        const disconnects = [redisClient.quit()];
+        if (pubClient) disconnects.push(pubClient.quit());
+        if (subClient) disconnects.push(subClient.quit());
+
+        await Promise.allSettled(disconnects);
+        console.log('Disconnected all Redis clients.');
       } catch (err) {
         console.error('Error during Redis disconnect:', err);
       }

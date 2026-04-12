@@ -77,7 +77,33 @@ async function startServer() {
     logger.info('Database connection established');
 
     // Initialize Redis for caching
-    const redisClient = createClient({ url: REDIS_URL });
+    const redisClient = createClient({
+      url: REDIS_URL,
+      socket: {
+        reconnectStrategy: retries => {
+          if (retries > 10) {
+            logger.error('Redis reconnection failed after 10 attempts');
+            return new Error('Redis reconnection failed');
+          }
+          const delay = Math.min(retries * 100, 3000);
+          logger.warn(
+            `Redis reconnecting in ${delay}ms... (attempt ${retries})`
+          );
+          return delay;
+        },
+      },
+    });
+
+    redisClient.on('error', err => {
+      logger.error('Redis Client Error:', err);
+    });
+
+    redisClient.on('connect', () => logger.info('Redis client connecting...'));
+    redisClient.on('ready', () => logger.info('Redis client ready'));
+    redisClient.on('reconnecting', () =>
+      logger.warn('Redis client reconnecting...')
+    );
+
     await redisClient.connect();
     logger.info('Redis connected for history caching');
 
