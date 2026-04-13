@@ -68,16 +68,15 @@ describe('Security Property Tests: Input Validation (@coffee-canvas/shared)', ()
       );
     });
 
-    it('should reject invalid UUIDs', () => {
+    it('should reject whitespace-only IDs', () => {
+      // Schema uses string().trim().min(1) — IDs are not required to be UUIDs
+      // (design uses non-UUID identifiers like 'room_abc123') but must be non-blank
+      const whitespaceArb = fc.stringMatching(/^\s+$/);
+
       fc.assert(
-        fc.property(fc.string(), invalidUuid => {
-          fc.pre(
-            !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
-              invalidUuid
-            )
-          );
+        fc.property(whitespaceArb, blankId => {
           const payload = {
-            roomId: invalidUuid,
+            roomId: blankId,
             userId: '550e8400-e29b-41d4-a716-446655440001',
             strokeId: '550e8400-e29b-41d4-a716-446655440002',
             tool: 'pen',
@@ -87,6 +86,29 @@ describe('Security Property Tests: Input Validation (@coffee-canvas/shared)', ()
           };
           const result = StrokeBeginSchema.safeParse(payload);
           expect(result.success).toBe(false);
+        })
+      );
+    });
+
+    it('should accept non-empty, non-whitespace IDs of any format', () => {
+      // Design allows any non-blank string as ID (UUID, short-code, nanoid, etc.)
+      const nonBlankArb = fc
+        .string({ minLength: 1 })
+        .filter(s => s.trim().length > 0);
+
+      fc.assert(
+        fc.property(nonBlankArb, validId => {
+          const payload = {
+            roomId: validId.trim(), // trim to match schema pre-processing
+            userId: '550e8400-e29b-41d4-a716-446655440001',
+            strokeId: '550e8400-e29b-41d4-a716-446655440002',
+            tool: 'pen',
+            color: '#000000',
+            width: 5,
+            timestamp: Date.now(),
+          };
+          const result = StrokeBeginSchema.safeParse(payload);
+          expect(result.success).toBe(true);
         })
       );
     });
