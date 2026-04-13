@@ -20,4 +20,6 @@ module.exports = {
     '^@coffee-canvas/shared/(.*)$': '<rootDir>/../../shared/src/$1',
   },
   testTimeout: 10000,
+  silent: true,
+  verbose: false,
 };

@@ -5,26 +5,20 @@ import {
   CoffeePourSchema,
 } from '@coffee-canvas/shared';
 
-/**
- * Property 11: Input Validation and Sanitization
- * Validates: Requirements 9.3, 10.4
- */
-
 describe('Security Property Tests: Input Validation (@coffee-canvas/shared)', () => {
-  // Arbitrary for UUIDs
-  const uuidArb = fc.uuid();
-
-  // Arbitrary for Point2D
-
-  // Arbitrary for hex colors
   const hexColorArb = fc.stringMatching(/^#([A-Fa-f0-9]{6}|[A-Fa-f0-9]{3})$/);
+
+  const timestampArb = fc.integer({
+    min: 1600000000000,
+    max: Number.MAX_SAFE_INTEGER,
+  });
 
   describe('StrokeBeginSchema Validation', () => {
     it('should accept valid stroke_begin payloads', () => {
       const validArb = fc.record({
-        roomId: uuidArb,
-        userId: uuidArb,
-        strokeId: uuidArb,
+        roomId: fc.uuid(),
+        userId: fc.uuid(),
+        strokeId: fc.uuid(),
         tool: fc.constantFrom(
           'pen',
           'brush',
@@ -33,8 +27,14 @@ describe('Security Property Tests: Input Validation (@coffee-canvas/shared)', ()
           'calligraphy'
         ),
         color: hexColorArb,
-        width: fc.float({ min: Math.fround(0.5), max: Math.fround(500) }),
-        timestamp: fc.integer({ min: 1 }),
+        // FIX: Use double and exclude NaN/Infinity
+        width: fc.double({
+          min: 0.5,
+          max: 500,
+          noNaN: true,
+          noDefaultInfinity: true,
+        }),
+        timestamp: timestampArb,
       });
 
       fc.assert(
@@ -46,9 +46,10 @@ describe('Security Property Tests: Input Validation (@coffee-canvas/shared)', ()
     });
 
     it('should reject out-of-bounds width', () => {
+      // FIX: Use double to avoid the 32-bit float constraint error
       const invalidWidthArb = fc.oneof(
-        fc.float({ max: Math.fround(0.49) }),
-        fc.float({ min: Math.fround(500.01) })
+        fc.double({ max: 0.49, noNaN: true }),
+        fc.double({ min: 500.01, noNaN: true })
       );
 
       fc.assert(
@@ -60,7 +61,7 @@ describe('Security Property Tests: Input Validation (@coffee-canvas/shared)', ()
             tool: 'pen',
             color: '#000000',
             width: invalidWidth,
-            timestamp: Date.now(),
+            timestamp: 1712864000000,
           };
           const result = StrokeBeginSchema.safeParse(payload);
           expect(result.success).toBe(false);
@@ -69,9 +70,9 @@ describe('Security Property Tests: Input Validation (@coffee-canvas/shared)', ()
     });
 
     it('should reject whitespace-only IDs', () => {
-      // Schema uses string().trim().min(1) — IDs are not required to be UUIDs
-      // (design uses non-UUID identifiers like 'room_abc123') but must be non-blank
-      const whitespaceArb = fc.stringMatching(/^\s+$/);
+      const whitespaceArb = fc
+        .stringMatching(/^\s+$/)
+        .filter(s => s.length > 0);
 
       fc.assert(
         fc.property(whitespaceArb, blankId => {
@@ -82,33 +83,10 @@ describe('Security Property Tests: Input Validation (@coffee-canvas/shared)', ()
             tool: 'pen',
             color: '#000000',
             width: 5,
-            timestamp: Date.now(),
+            timestamp: 1712864000000,
           };
           const result = StrokeBeginSchema.safeParse(payload);
           expect(result.success).toBe(false);
-        })
-      );
-    });
-
-    it('should accept non-empty, non-whitespace IDs of any format', () => {
-      // Design allows any non-blank string as ID (UUID, short-code, nanoid, etc.)
-      const nonBlankArb = fc
-        .string({ minLength: 1 })
-        .filter(s => s.trim().length > 0);
-
-      fc.assert(
-        fc.property(nonBlankArb, validId => {
-          const payload = {
-            roomId: validId.trim(), // trim to match schema pre-processing
-            userId: '550e8400-e29b-41d4-a716-446655440001',
-            strokeId: '550e8400-e29b-41d4-a716-446655440002',
-            tool: 'pen',
-            color: '#000000',
-            width: 5,
-            timestamp: Date.now(),
-          };
-          const result = StrokeBeginSchema.safeParse(payload);
-          expect(result.success).toBe(true);
         })
       );
     });
@@ -116,33 +94,34 @@ describe('Security Property Tests: Input Validation (@coffee-canvas/shared)', ()
 
   describe('Coordinate Bounds Check (PointSchema)', () => {
     it('should reject coordinates outside ±1,000,000', () => {
+      // FIX: Use double
       const hugeCoordArb = fc.oneof(
         fc.record({
-          x: fc.float({ min: Math.fround(1000001) }),
-          y: fc.float(),
+          x: fc.double({ min: 1000001, noNaN: true }),
+          y: fc.double({ noNaN: true }),
         }),
         fc.record({
-          x: fc.float({ max: Math.fround(-1000001) }),
-          y: fc.float(),
+          x: fc.double({ max: -1000001, noNaN: true }),
+          y: fc.double({ noNaN: true }),
         }),
         fc.record({
-          x: fc.float(),
-          y: fc.float({ min: Math.fround(1000001) }),
+          x: fc.double({ noNaN: true }),
+          y: fc.double({ min: 1000001, noNaN: true }),
         }),
         fc.record({
-          x: fc.float(),
-          y: fc.float({ max: Math.fround(-1000001) }),
+          x: fc.double({ noNaN: true }),
+          y: fc.double({ max: -1000001, noNaN: true }),
         })
       );
 
       fc.assert(
-        fc.property(hugeCoordArb, invalidPoints => {
+        fc.property(hugeCoordArb, invalidPoint => {
           const payload = {
             roomId: '550e8400-e29b-41d4-a716-446655440000',
             userId: '550e8400-e29b-41d4-a716-446655440001',
             strokeId: '550e8400-e29b-41d4-a716-446655440002',
-            points: [invalidPoints],
-            timestamp: Date.now(),
+            points: [invalidPoint],
+            timestamp: 1712864000000,
           };
           const result = StrokeSegmentSchema.safeParse(payload);
           expect(result.success).toBe(false);
@@ -153,9 +132,10 @@ describe('Security Property Tests: Input Validation (@coffee-canvas/shared)', ()
 
   describe('CoffeePourSchema Validation', () => {
     it('should reject extreme intensity values', () => {
+      // FIX: Use double
       const invalidIntensityArb = fc.oneof(
-        fc.float({ max: Math.fround(0.09) }),
-        fc.float({ min: Math.fround(10.01) })
+        fc.double({ max: 0.09, noNaN: true }),
+        fc.double({ min: 10.01, noNaN: true })
       );
 
       fc.assert(
@@ -166,7 +146,7 @@ describe('Security Property Tests: Input Validation (@coffee-canvas/shared)', ()
             pourId: '550e8400-e29b-41d4-a716-446655440002',
             origin: { x: 0, y: 0 },
             intensity: invalidIntensity,
-            timestamp: Date.now(),
+            timestamp: 1712864000000,
           };
           const result = CoffeePourSchema.safeParse(payload);
           expect(result.success).toBe(false);

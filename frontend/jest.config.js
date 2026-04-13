@@ -14,6 +14,8 @@ const customJestConfig = {
     '^@/(.*)$': '<rootDir>/src/$1',
     '^@shared/(.*)$': '<rootDir>/../shared/src/$1',
   },
+  silent: true,
+  verbose: false,
 };
 
 // createJestConfig is exported this way to ensure that next/jest can load the Next.js config which is async
