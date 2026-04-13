@@ -150,12 +150,14 @@ sequenceDiagram
 
 ### 3.3 Room Service — `room-service`
 
-| Concern | Detail                                            |
-| ------- | ------------------------------------------------- |
-| Runtime | Node.js 24, TypeScript                            |
-| API     | GraphQL via Pothos schema builder + Apollo Server |
-| Auth    | JWT issuance + validation                         |
-| DB      | PostgreSQL via Prisma ORM                         |
+| Concern | Detail                                                             |
+| ------- | ------------------------------------------------------------------ |
+| Runtime | Node.js 24, TypeScript                                             |
+| API     | GraphQL via SDL (`gql`) + Apollo Server (Express) — Pothos planned |
+| Auth    | JWT issuance + validation                                          |
+| DB      | PostgreSQL via `DatabaseManager` (raw `pg`) — Prisma planned       |
+
+> **Implementation note:** Current stack uses SDL-defined types + `apollo-server-express` + a custom `DatabaseManager` over raw `pg`. The GraphQL API surface (mutations, queries, types) is fully equivalent to the Pothos+Prisma plan. Migration to Pothos schema builder and Prisma ORM is tracked as a future refactor but is not blocking functionality.
 
 **Responsibilities:**
 
@@ -181,7 +183,7 @@ sequenceDiagram
 - Run fluid spread simulation (configurable steps, viscosity, absorption coefficients)
 - Return `StainResult`: list of stain polygons + list of stroke IDs with mutation vectors (color shift, blur factor)
 - Stateless — every RPC call is independent; no in-memory session state
-- Optimized for <100ms p99 response time for typical room density
+- Target **<100ms** p99 response time. Canvas Service enforces via `PHYSICS_DEADLINE_MS` env var (default 150ms = 100ms target + 50ms network). Fallback circular stain broadcasts automatically on timeout.
 
 ---
 

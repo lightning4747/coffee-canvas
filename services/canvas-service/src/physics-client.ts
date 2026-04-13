@@ -21,8 +21,17 @@ const PROTO_PATH = path.resolve(
   __dirname,
   '../../../shared/proto/physics.proto'
 );
+// Support both env var names: PHYSICS_GRPC_ADDR (docker-compose) and PHYSICS_SERVICE_URL (legacy)
 const PHYSICS_SERVICE_URL =
-  process.env.PHYSICS_SERVICE_URL || 'localhost:50051';
+  process.env.PHYSICS_GRPC_ADDR ||
+  process.env.PHYSICS_SERVICE_URL ||
+  'localhost:50051';
+
+/** Max ms to wait for a physics response. Default 150ms = 100ms target + 50ms network. Tunable via env. */
+const PHYSICS_DEADLINE_MS = parseInt(
+  process.env.PHYSICS_DEADLINE_MS || '150',
+  10
+);
 
 const packageDefinition = protoLoader.loadSync(PROTO_PATH, {
   keepCase: true,
@@ -59,7 +68,9 @@ export class PhysicsClient {
 
     // Initialize Circuit Breaker (Task 11.1)
     this.breaker = new CircuitBreaker(this._invokeComputeSpread.bind(this), {
-      timeout: 5000,
+      // Req 5.2: Physics must complete within 100ms. PHYSICS_DEADLINE_MS gives target + network buffer.
+      // Fallback stain is broadcast automatically by index.ts catch block on timeout.
+      timeout: PHYSICS_DEADLINE_MS,
       errorThresholdPercentage: 50,
       resetTimeout: 10000,
     });
@@ -124,9 +135,12 @@ export class PhysicsClient {
    */
   private async _invokeComputeSpread(request: any): Promise<StainResult> {
     return new Promise((resolve, reject) => {
-      // 5 second timeout for physics simulation (Requirement 5.2 target is 100ms)
+      // Req 5.2: Physics target <100ms p99. Tunable via PHYSICS_DEADLINE_MS env var.
+      // On DEADLINE_EXCEEDED the circuit breaker catch in index.ts emits a fallback stain.
       const deadline = new Date();
-      deadline.setMilliseconds(deadline.getMilliseconds() + 5000);
+      deadline.setMilliseconds(
+        deadline.getMilliseconds() + PHYSICS_DEADLINE_MS
+      );
 
       try {
         this.client.computeSpread(
