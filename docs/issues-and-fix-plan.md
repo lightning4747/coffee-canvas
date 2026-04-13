@@ -89,11 +89,15 @@ This document captures the currently observed high-level stability/design issues
 
 ## Phase 2 - Eliminate Fragile Build/Resolution Paths
 
+**Status:** ✅ Complete
+
 ### Step 5. Correct tsconfig path alias setup
 
-1. Adjust service `tsconfig.json` (`baseUrl`/`paths`) to resolve shared package deterministically.
-2. Ensure workspace build order and project references are consistent.
-3. Rebuild shared + canvas + room to confirm stable imports.
+1. ✅ Changed `baseUrl` from `"./src"` to `"."` in both service tsconfigs — eliminates ambiguous non-relative import resolution from inside `src/`.
+2. ✅ Removed `paths` override for `@coffee-canvas/shared` in both service tsconfigs — resolution now flows through project references (for `tsc --build`) and node_modules symlink (`file:../../shared` → `shared/dist/index.js`) for runtime/production.
+3. ✅ Added `moduleNameMapper` to room-service `jest.config.js` (matching canvas-service) — tests no longer depend on shared being pre-built.
+4. ✅ Deleted stale `tsconfig.tsbuildinfo` files from both services to invalidate old cached resolution.
+5. ✅ Verified: `tsc --build --verbose` rebuilt all 5 projects (shared, canvas-service, room-service, frontend, root) with zero errors.
 
 ## Phase 3 - Re-align with Architecture Plan
 

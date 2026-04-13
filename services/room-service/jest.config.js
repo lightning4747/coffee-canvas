@@ -16,5 +16,9 @@ module.exports = {
   coverageReporters: ['text', 'lcov', 'html'],
   setupFilesAfterEnv: ['<rootDir>/src/test-setup.ts'],
   modulePathIgnorePatterns: ['<rootDir>/dist/'],
+  moduleNameMapper: {
+    '^@coffee-canvas/shared$': '<rootDir>/../../shared/src/index.ts',
+    '^@coffee-canvas/shared/(.*)$': '<rootDir>/../../shared/src/$1',
+  },
   testTimeout: 10000,
 };

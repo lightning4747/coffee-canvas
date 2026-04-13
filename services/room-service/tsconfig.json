@@ -3,14 +3,10 @@
   "compilerOptions": {
     "outDir": "./dist",
     "rootDir": "./src",
-    "baseUrl": "./src",
+    "baseUrl": ".",
     "composite": true,
-    "target": "ES2020", // Explicitly set for this service
-    "downlevelIteration": true, // Specifically fixes the Map/Set iteration error
-    "paths": {
-      "@coffee-canvas/shared": ["../../shared/src/index.ts"],
-      "@coffee-canvas/shared/*": ["../../shared/src/*"]
-    }
+    "target": "ES2020",
+    "downlevelIteration": true
   },
   "references": [{ "path": "../../shared" }],
   "include": ["src/**/*"],

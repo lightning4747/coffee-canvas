@@ -3,12 +3,8 @@
   "compilerOptions": {
     "outDir": "./dist",
     "rootDir": "./src",
-    "baseUrl": "./src",
-    "composite": true,
-    "paths": {
-      "@coffee-canvas/shared": ["../../shared/src/index.ts"],
-      "@coffee-canvas/shared/*": ["../../shared/src/*"]
-    }
+    "baseUrl": ".",
+    "composite": true
   },
   "references": [{ "path": "../../shared" }],
   "include": ["src/**/*"],
