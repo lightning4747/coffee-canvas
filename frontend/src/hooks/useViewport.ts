@@ -1,4 +1,4 @@
-import { useEffect, useCallback } from 'react';
+import { useEffect, useCallback, useRef } from 'react';
 import { useStore } from '../store/useStore';
 import * as PIXI from 'pixi.js';
 
@@ -8,22 +8,28 @@ export const useViewport = (
 ) => {
   const { viewport, setViewport, activeTool } = useStore();
 
+  const viewportRef = useRef(viewport);
+  useEffect(() => {
+    viewportRef.current = viewport;
+  }, [viewport]);
+
   const handleWheel = useCallback(
     (e: WheelEvent) => {
       if (!pixiApp || !worldContainer) return;
       e.preventDefault();
 
+      const { zoom, x, y } = viewportRef.current;
       const zoomSpeed = 0.001;
       const delta = -e.deltaY * zoomSpeed;
-      const newZoom = Math.max(0.1, Math.min(10, viewport.zoom + delta));
+      const newZoom = Math.max(0.1, Math.min(10, zoom + delta));
 
       // Zoom towards mouse position
       const mouseX = e.clientX;
       const mouseY = e.clientY;
 
       // World coordinates of the mouse before zoom
-      const worldMouseX = (mouseX - viewport.x) / viewport.zoom;
-      const worldMouseY = (mouseY - viewport.y) / viewport.zoom;
+      const worldMouseX = (mouseX - x) / zoom;
+      const worldMouseY = (mouseY - y) / zoom;
 
       // New viewport offset to keep mouse over the same world coordinate
       const newX = mouseX - worldMouseX * newZoom;
@@ -31,23 +37,20 @@ export const useViewport = (
 
       setViewport({ x: newX, y: newY, zoom: newZoom });
     },
-    [pixiApp, worldContainer, viewport, setViewport]
+    [pixiApp, worldContainer, setViewport]
   );
 
   const handlePointerMove = useCallback(
     (e: PointerEvent) => {
-      // Logic for panning (e.g., if middle click is held or special key)
       if (e.buttons === 4 || (e.buttons === 1 && activeTool === 'pour')) {
-        // Simple panning for now if middle button (4) or left button in certain modes
-        // But for "Infinite Canvas", we usually want space+drag or middle drag
-        // Let's implement middle-drag panning
+        const { x, y } = viewportRef.current;
         setViewport({
-          x: viewport.x + e.movementX,
-          y: viewport.y + e.movementY,
+          x: x + e.movementX,
+          y: y + e.movementY,
         });
       }
     },
-    [viewport, setViewport, activeTool]
+    [setViewport, activeTool]
   );
 
   useEffect(() => {

@@ -74,9 +74,13 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({
   useEffect(() => {
     if (!roomId || !userId) return;
 
+    console.log(`[Socket] Initializing for room=${roomId}, user=${userId}`);
+
     // Use environment variable or default to localhost:3001 (Canvas Service)
     const socketUrl =
       process.env.NEXT_PUBLIC_SOCKET_URL || 'http://localhost:3001';
+
+    console.log(`[Socket] Connecting to ${socketUrl}...`);
 
     // For Phase 8, we use a dynamic mock JWT that conveys identity for dev mode
     const mockToken = `mock-jwt-token:${userId}:Artist-${userId.split('-')[1]}:${
@@ -91,6 +95,7 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({
       reconnectionDelay: 1000,
       reconnectionDelayMax: 5000,
       randomizationFactor: 0.5,
+      transports: ['websocket'], // Force websocket for faster initial connection
     });
 
     newSocket.on('connect', () => {

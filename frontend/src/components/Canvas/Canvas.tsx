@@ -17,7 +17,10 @@ import { CursorRenderer } from './renderers/CursorRenderer';
 import { StainRenderer } from './renderers/StainRenderer';
 import { StrokeRenderer } from './renderers/StrokeRenderer';
 
+console.log('[Canvas] Module evaluating...');
+
 export const Canvas: React.FC = () => {
+  console.log('[Canvas] Rendering...');
   // 1. Context & Infrastructure
   const { canvasRef, worldContainer, pixiApp } = useCanvas();
   const { viewport, activeTool, brushSettings } = useStore();
