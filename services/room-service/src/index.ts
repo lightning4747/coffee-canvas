@@ -23,7 +23,7 @@ const logger = createLogger('room-service');
 
 // Rate limiting configuration
 const rateLimiter = new RateLimiterMemory({
-  points: 5, // Lowered for diagnostic testing
+  points: 100, // Increased for integration/load testing
   duration: 60, // Per 60 seconds
 });
 
