@@ -23,7 +23,7 @@ export const Canvas: React.FC = () => {
   console.log('[Canvas] Rendering...');
   // 1. Context & Infrastructure
   const { canvasRef, worldContainer, pixiApp } = useCanvas();
-  const { viewport, activeTool, brushSettings } = useStore();
+  const { viewport, activeTool, brushSettings, brushStyle } = useStore();
   const {
     emitStrokeBegin,
     emitStrokeSegment,
@@ -34,6 +34,7 @@ export const Canvas: React.FC = () => {
   } = useSocket();
   const [drawingLayer, setDrawingLayer] = useState<PIXI.Container | null>(null);
   const [cursorsLayer, setCursorsLayer] = useState<PIXI.Container | null>(null);
+  const [isDragging, setIsDragging] = useState(false);
 
   const activeStrokeRef = useRef<{
     id: string;
@@ -186,7 +187,13 @@ export const Canvas: React.FC = () => {
       const worldPos = screenToWorld(e.clientX, e.clientY);
       if (e.buttons !== 1) return;
 
-      // Handle Coffee Pour Interaction (Task 7.3)
+      // Pan tool — let useViewport handle it, don't draw
+      if (activeTool === 'pan') {
+        setIsDragging(true);
+        return;
+      }
+
+      // Handle Coffee Pour Interaction
       if (activeTool === 'pour') {
         const g = StrokeRenderer.createGraphics();
         drawingLayer.addChild(g);
@@ -233,7 +240,10 @@ export const Canvas: React.FC = () => {
         points: [worldPos],
       };
 
-      StrokeRenderer.render(graphics, [worldPos], brushSettings);
+      StrokeRenderer.render(graphics, [worldPos], {
+        ...brushSettings,
+        brushStyle,
+      });
 
       // Emit stroke_begin
       emitStrokeBegin({
@@ -253,7 +263,7 @@ export const Canvas: React.FC = () => {
       StrokeRenderer.render(
         activeStrokeRef.current.graphics,
         activeStrokeRef.current.points,
-        brushSettings
+        { ...brushSettings, brushStyle }
       );
 
       // Emit stroke_segment
@@ -264,6 +274,7 @@ export const Canvas: React.FC = () => {
     };
 
     const handlePointerUp = () => {
+      setIsDragging(false);
       if (!activeStrokeRef.current) return;
 
       // Emit stroke_end
@@ -349,6 +360,21 @@ export const Canvas: React.FC = () => {
     });
   }, [viewport, drawingLayer, pixiApp]);
 
+  // Compute CSS cursor based on active tool
+  const getCursor = () => {
+    if (activeTool === 'pan') return isDragging ? 'grabbing' : 'grab';
+    if (activeTool === 'pen') return 'crosshair';
+    if (activeTool === 'pour') return 'cell';
+    if (activeTool === 'eraser') {
+      // SVG circle sized to brush width (min 8px so it's always clickable)
+      const r = Math.max(brushSettings.width / 2, 4);
+      const d = r * 2;
+      const svg = `<svg xmlns='http://www.w3.org/2000/svg' width='${d}' height='${d}'><circle cx='${r}' cy='${r}' r='${r - 1}' fill='none' stroke='%23666' stroke-width='1.5'/></svg>`;
+      return `url("data:image/svg+xml,${svg}") ${r} ${r}, crosshair`;
+    }
+    return 'default';
+  };
+
   return (
     <div
       ref={canvasRef}
@@ -359,8 +385,7 @@ export const Canvas: React.FC = () => {
         position: 'fixed',
         top: 0,
         left: 0,
-        cursor: activeTool === 'eraser' ? 'cell' : 'crosshair',
-        backgroundColor: '#1a1a1a',
+        cursor: getCursor(),
       }}
     />
   );

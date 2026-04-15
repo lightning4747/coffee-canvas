@@ -42,7 +42,12 @@ export const useViewport = (
 
   const handlePointerMove = useCallback(
     (e: PointerEvent) => {
-      if (e.buttons === 4 || (e.buttons === 1 && activeTool === 'pour')) {
+      // Pan: middle-mouse (buttons=4) on any tool, OR left-drag (buttons=1) when pan tool active
+      const isPanGesture =
+        e.buttons === 4 ||
+        (e.buttons === 1 && (activeTool === 'pan' || activeTool === 'pour'));
+
+      if (isPanGesture) {
         const { x, y } = viewportRef.current;
         setViewport({
           x: x + e.movementX,
