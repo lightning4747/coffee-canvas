@@ -279,61 +279,145 @@ This implementation plan creates a real-time collaborative drawing application w
     - Create error aggregation and alerting systems
     - _Requirements: 10.2, 9.5_
 
-  - [ ]\* 11.3 Write integration tests for error scenarios
+  - [x]\* 11.3 Write integration tests for error scenarios
     - Test service failure and recovery scenarios
     - Test database connection failures and reconnection
     - Test network partition and split-brain scenarios
     - _Requirements: 10.1, 10.3_
 
-- [ ] 12. Checkpoint - System Integration Testing
+- [x] 12. Checkpoint - System Integration Testing
   - Run end-to-end tests with multiple concurrent users
   - Verify all performance targets are met (50ms drawing, 100ms physics)
   - Test complete user workflows from room creation to collaborative drawing
   - Ask the user if questions arise about system integration
 
-- [ ] 13. Deployment and Production Configuration
-  - [ ] 13.1 Create production Docker configurations
+- [ ] 13. Canvas Core UX — Room Lobby
+  - [ ] 13.1 Create GraphQL client helper for Room Service
+    - Implement lightweight `createRoom` and `joinRoom` fetch wrappers in `frontend/src/lib/graphql.ts`
+    - No Apollo client required — plain fetch POST to `http://localhost:3002/graphql`
+    - _Requirements: 11.2, 11.3_
+
+  - [ ] 13.2 Build the Lobby page (create / join)
+    - Create `frontend/src/pages/lobby.tsx` with two panels: Create Room and Join Room
+    - Create Room: optional name input → calls `createRoom` → redirects to `/canvas/[roomId]`
+    - Join Room: 6-char code + display name → calls `joinRoom` → redirects to `/canvas/[roomId]`
+    - Display clear validation errors for invalid codes or full rooms
+    - Coffee-themed hero section with CSS animated steam
+    - _Requirements: 11.1, 11.2, 11.3, 11.4_
+
+  - [ ] 13.3 Create the canvas route `/canvas/[roomId]`
+    - Create `frontend/src/pages/canvas/[roomId].tsx` that guards against missing token and renders `<Canvas />` and `<Toolbar />`
+    - If no valid token in localStorage → redirect to `/lobby`
+    - _Requirements: 11.5, 11.6_
+
+  - [ ] 13.4 Wire auth into Zustand store and SocketContext
+    - Extend `useStore.ts`: add `userName`, `userColor`, `token` fields; expand `setRoomInfo` to accept them
+    - Update `SocketContext.tsx`: remove hardcoded mock `roomId`/`userId`; read real JWT from store for `auth.token`
+    - _Requirements: 11.6, 4.2_
+
+  - [ ] 13.5 Update root index page to redirect to lobby
+    - Replace `frontend/src/pages/index.tsx` canvas render with a `router.replace('/lobby')` redirect
+    - _Requirements: 11.1_
+
+- [ ] 14. Canvas Core UX — Cursor Modes and Pan Tool
+  - [ ] 14.1 Add Pan tool to the store and toolbar
+    - Add `'pan'` to `ToolType` union in `useStore.ts`
+    - Add Hand icon Pan tool button as first item in `Toolbar.tsx` TOOLS array
+    - _Requirements: 12.1, 12.5_
+
+  - [ ] 14.2 Implement per-tool CSS cursors on the canvas
+    - Update cursor style logic in `Canvas.tsx`:
+      - `pan` (idle) → `grab`, `pan` (dragging) → `grabbing`
+      - `pen` → `crosshair`
+      - `eraser` → custom SVG circle cursor sized to brush width
+      - `pour` → `cell`
+    - _Requirements: 12.1, 12.2, 12.3, 12.4_
+
+  - [ ] 14.3 Implement Pan tool pointer interaction
+    - Update `useViewport.ts` to pan the viewport when `activeTool === 'pan'` and `e.buttons === 1`
+    - Keep existing middle-mouse pan as fallback for all tools
+    - _Requirements: 12.5, 12.6_
+
+  - [ ] 14.4 Switch canvas background to white
+    - Change `backgroundColor: 0x1a1a1a` → `0xFFFFFF` in `useCanvas.ts`
+    - Remove `backgroundColor: '#1a1a1a'` from the container `<div>` in `Canvas.tsx`
+    - _Requirements: 13.5_
+
+- [ ] 15. Canvas Core UX — Color Palette and Brush Styles
+  - [ ] 15.1 Implement 24-color palette with custom picker
+    - Replace the 7-color array in `Toolbar.tsx` with a 24-color grid (neutrals, warms, cools, vibrants rows)
+    - Add a native `<input type="color">` custom-picker button as the last swatch
+    - Add visible selected-state ring on the active swatch
+    - _Requirements: 13.1, 13.2, 13.3_
+
+  - [ ] 15.2 Add brush style selector to toolbar
+    - Add `brushStyle: BrushStyleType` (`'round' | 'flat' | 'marker' | 'watercolor'`) to `useStore.ts`
+    - Add `setBrushStyle` action
+    - Add 4 brush-style icon buttons below color palette in `Toolbar.tsx`
+    - _Requirements: 13.4_
+
+  - [ ] 15.3 Implement brush style rendering in StrokeRenderer
+    - Extend `StrokeRenderer.render()` to accept `brushStyle` and apply:
+      - `round`: current behavior (round cap/join)
+      - `flat`: square cap, solid opacity
+      - `marker`: 2× width, ~0.4 alpha, no anti-aliasing
+      - `watercolor`: 3 overlapping passes at low alpha with ±2px jitter per pass
+    - _Requirements: 13.4_
+
+  - [ ] 15.4 Add live size preview dot to brush slider
+    - Show a filled circle next to the size slider in `Toolbar.tsx` whose diameter matches `brushSettings.width`
+    - _Requirements: 13.6_
+
+- [ ] 16. Checkpoint — Canvas Core UX Verification
+  - Verify lobby page create/join flows work end-to-end with the running Room Service
+  - Verify cursor changes on tool switch and pan mode works without drawing strokes
+  - Verify white canvas background renders correctly
+  - Verify all 24 colors and 4 brush styles produce visually distinct strokes
+  - Verify multi-user collaboration still works after SocketContext auth changes
+
+- [ ] 17. Deployment and Production Configuration
+  - [ ] 17.1 Create production Docker configurations
     - Build optimized Docker images for all services
     - Configure production environment variables and secrets
     - Set up multi-stage builds for minimal image sizes
     - _Requirements: 8.1_
 
-  - [ ] 13.2 Implement deployment automation
+  - [ ] 17.2 Implement deployment automation
     - Create Kubernetes manifests or Docker Compose for production
     - Set up automated deployment pipelines with health checks
     - Configure load balancing and service discovery
     - _Requirements: 8.1, 8.2_
 
-  - [ ] 13.3 Add production monitoring and alerting
+  - [ ] 17.3 Add production monitoring and alerting
     - Configure application performance monitoring (APM)
     - Set up log aggregation and analysis systems
     - Create alerting rules for critical system metrics
     - _Requirements: 10.1, 10.2_
 
-  - [ ]\* 13.4 Write deployment verification tests
+  - [ ]\* 17.4 Write deployment verification tests
     - Test production deployment procedures
     - Verify all services start correctly in production environment
     - Test backup and disaster recovery procedures
     - _Requirements: 6.4, 8.1_
 
-- [ ] 14. Final Integration and User Acceptance
-  - [ ] 14.1 Conduct comprehensive system testing
-    - Test all user workflows end-to-end
+- [ ] 18. Final Integration and User Acceptance
+  - [ ] 18.1 Conduct comprehensive system testing
+    - Test all user workflows end-to-end including lobby → canvas flow
     - Verify performance requirements under realistic load
     - Validate security measures and access controls
     - _Requirements: All requirements_
 
-  - [ ] 14.2 Create user documentation and deployment guide
+  - [ ] 18.2 Create user documentation and deployment guide
     - Write API documentation for all services
-    - Create user guide for drawing interface and features
+    - Create user guide for drawing interface and features including new tools
     - Document deployment and configuration procedures
     - _Requirements: 7.1, 7.2, 7.3_
 
-  - [ ]\* 14.3 Write property test for room capacity enforcement
+  - [ ]\* 18.3 Write property test for room capacity enforcement
     - **Property 8: Room Capacity Enforcement**
-    - **Validates: Requirements 4.3**
+    - **Validates: Requirements 4.3, 11.4**
 
-- [ ] 15. Final Checkpoint - Production Readiness
+- [ ] 19. Final Checkpoint - Production Readiness
   - Ensure all tests pass and performance targets are met
   - Verify production deployment is successful and stable
   - Confirm all security measures are properly configured
@@ -343,6 +427,7 @@ This implementation plan creates a real-time collaborative drawing application w
 
 - Tasks marked with `*` are optional and can be skipped for faster MVP delivery
 - Each task references specific requirements for traceability and validation
+- Tasks 13–15 are the new Canvas Core UX block — they must be completed before Task 17 (deployment)
 - Property tests validate universal correctness properties from the design document
 - Checkpoints ensure incremental validation and provide opportunities for user feedback
 - The implementation follows microservices architecture with clear service boundaries

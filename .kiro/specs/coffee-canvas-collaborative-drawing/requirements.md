@@ -15,6 +15,10 @@ Coffee & Canvas is a real-time collaborative drawing application that enables mu
 - **Stain**: The visual result of coffee pour physics, consisting of polygonal areas with opacity and color
 - **Spatial_Chunk**: A grid-based subdivision of the canvas used for efficient storage and retrieval
 - **Real_Time_Synchronization**: The process of broadcasting drawing events to all room participants within latency bounds
+- **Lobby**: The landing page where users create or join a collaborative room before entering the canvas
+- **Anonymous_User**: A participant who joins without a persistent account, identified only by a session-scoped display name and assigned color
+- **Brush_Style**: A named rendering mode that alters the visual character of a stroke (e.g. round, flat, marker, watercolor)
+- **Pan_Tool**: A canvas interaction mode that moves the viewport without creating any drawing strokes
 
 ## Requirements
 
@@ -137,3 +141,42 @@ Coffee & Canvas is a real-time collaborative drawing application that enables mu
 3. WHEN database connections fail, THE system SHALL maintain drawing functionality using cached data and retry persistence operations
 4. WHEN invalid data is received, THE system SHALL validate inputs and reject malformed requests with descriptive error responses
 5. WHEN system resources are exhausted, THE application SHALL implement backpressure mechanisms to maintain stability
+
+### Requirement 11: Room Lobby and Anonymous User Onboarding
+
+**User Story:** As a new user, I want a simple landing page where I can create a new drawing room or join an existing one using a short code, so that I can start collaborating without needing to register an account.
+
+#### Acceptance Criteria
+
+1. WHEN a user visits the application root, THE system SHALL present a lobby page with options to create or join a room
+2. WHEN a user creates a room, THE lobby SHALL accept an optional room name and call the Room_Service `createRoom` mutation, then redirect to the canvas with the returned JWT
+3. WHEN a user joins a room, THE lobby SHALL require a 6-character room code and a display name, call the Room_Service `joinRoom` mutation, then redirect to the canvas with the returned JWT
+4. WHEN a room code is invalid or the room is at capacity, THE lobby SHALL display a clear error message and allow the user to retry without losing their entered data
+5. WHEN a user navigates directly to `/canvas/[roomId]` without a valid token, THE system SHALL redirect them back to the lobby
+6. WHEN authentication succeeds, THE system SHALL store the JWT token, roomId, userId, userName, and userColor in the browser session and Zustand store for use by the Socket.IO client
+
+### Requirement 12: Drawing Tool Cursor Modes
+
+**User Story:** As an artist, I want the mouse cursor to visually reflect the currently selected tool, so that I always have clear context for what my next interaction will produce.
+
+#### Acceptance Criteria
+
+1. WHEN the Pan tool is active, THE canvas cursor SHALL display as a hand (`grab`) icon, changing to `grabbing` while dragging
+2. WHEN the Pen tool is active, THE canvas cursor SHALL display as a `crosshair`
+3. WHEN the Eraser tool is active, THE canvas cursor SHALL display a circular outline scaled to the current brush size
+4. WHEN the Coffee Pour tool is active, THE canvas cursor SHALL display as `cell`
+5. WHEN the Pan tool is selected, dragging the canvas SHALL pan the viewport without creating any drawing strokes
+6. WHEN any non-pan tool is active, middle-mouse drag SHALL still pan the viewport as a fallback
+
+### Requirement 13: Color Palette and Brush Style System
+
+**User Story:** As an artist, I want access to a wide range of colors and distinct brush styles, so that I can express creative ideas with appropriate visual variety.
+
+#### Acceptance Criteria
+
+1. WHEN the toolbar is displayed, THE color palette SHALL offer at least 24 curated colors organised into thematic groups (neutrals, warms, cools, vibrants)
+2. WHEN a color swatch is selected, THE active stroke color SHALL update immediately with a visible selected-state indicator on the swatch
+3. WHEN the custom color picker is activated, THE interface SHALL open the browser's native color input so the user can choose any color
+4. WHEN a brush style is selected, THE StrokeRenderer SHALL alter the visual character of subsequent strokes: round (smooth round cap), flat (square cap, higher opacity), marker (wide, semi-transparent), watercolor (multiple low-opacity overlapping passes with jitter)
+5. WHEN the canvas background is rendered, IT SHALL be white (`#FFFFFF`) to match a paper drawing metaphor
+6. WHEN brush size is adjusted, THE size slider SHALL display a live preview dot showing the relative stroke width at the current zoom level
