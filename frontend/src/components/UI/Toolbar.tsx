@@ -237,6 +237,9 @@ export const Toolbar: React.FC = () => {
     setBrushSettings,
     brushStyle,
     setBrushStyle,
+    roomCode,
+    userName,
+    userColor,
   } = useStore();
 
   const colorInputRef = useRef<HTMLInputElement>(null);
@@ -244,16 +247,16 @@ export const Toolbar: React.FC = () => {
 
   return (
     <div
-      className="absolute left-1/2 -translate-x-1/2 bottom-8 pointer-events-auto"
+      className="absolute left-1/2 -translate-x-1/2 top-5 pointer-events-auto"
       style={{
         transform: 'translateX(-50%)',
         position: 'absolute',
         left: '50%',
-        bottom: '32px',
+        top: '20px',
       }}
     >
       <motion.div
-        initial={{ y: 100, opacity: 0 }}
+        initial={{ y: -100, opacity: 0 }}
         animate={{ y: 0, opacity: 1 }}
         style={{
           display: 'flex',
@@ -522,6 +525,64 @@ export const Toolbar: React.FC = () => {
                 maxHeight: '40px',
               }}
             />
+          </div>
+
+          {/* Separator */}
+          <div
+            style={{
+              width: '1px',
+              height: '32px',
+              background: 'rgba(255,255,255,0.08)',
+            }}
+          />
+
+          {/* Room and User Identity */}
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '8px',
+              padding: '0 8px',
+            }}
+          >
+            {roomCode && (
+              <span
+                style={{
+                  fontFamily: 'monospace',
+                  fontSize: '14px',
+                  fontWeight: 600,
+                  letterSpacing: '0.1em',
+                  color: 'rgba(255,255,255,0.9)',
+                  background: 'rgba(255,255,255,0.1)',
+                  padding: '4px 8px',
+                  borderRadius: '6px',
+                }}
+              >
+                {roomCode}
+              </span>
+            )}
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+              <span
+                style={{
+                  display: 'inline-block',
+                  width: 10,
+                  height: 10,
+                  borderRadius: '50%',
+                  backgroundColor: userColor || '#8b5cf6',
+                  flexShrink: 0,
+                }}
+              />
+              <span
+                style={{
+                  fontSize: '13px',
+                  color: 'rgba(255,255,255,0.7)',
+                  fontWeight: 500,
+                  whiteSpace: 'nowrap',
+                }}
+              >
+                {userName || 'Artist'}
+              </span>
+            </div>
           </div>
         </div>
       </motion.div>

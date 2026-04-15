@@ -34,12 +34,14 @@ interface AppState {
 
   // Room & User Info (populated after lobby auth)
   roomId: string | null;
+  roomCode: string | null;
   userId: string | null;
   userName: string | null;
   userColor: string | null;
   token: string | null;
   setRoomInfo: (
     roomId: string,
+    roomCode: string,
     userId: string,
     userName: string,
     userColor: string,
@@ -72,15 +74,17 @@ export const useStore = create<AppState>(set => ({
     set(state => ({ viewport: { ...state.viewport, ...viewport } })),
 
   roomId: null,
+  roomCode: null,
   userId: null,
   userName: null,
   userColor: null,
   token: null,
-  setRoomInfo: (roomId, userId, userName, userColor, token) =>
-    set({ roomId, userId, userName, userColor, token }),
+  setRoomInfo: (roomId, roomCode, userId, userName, userColor, token) =>
+    set({ roomId, roomCode, userId, userName, userColor, token }),
   clearRoomInfo: () =>
     set({
       roomId: null,
+      roomCode: null,
       userId: null,
       userName: null,
       userColor: null,

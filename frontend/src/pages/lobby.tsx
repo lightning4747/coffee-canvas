@@ -25,6 +25,7 @@ export default function Lobby() {
       const payload = await createRoom(roomName || undefined);
       setRoomInfo(
         payload.room.id,
+        payload.room.code,
         payload.user.id,
         payload.user.displayName,
         payload.user.color,
@@ -33,6 +34,7 @@ export default function Lobby() {
       // Persist to localStorage for route guard on canvas page
       localStorage.setItem('cc_token', payload.token);
       localStorage.setItem('cc_roomId', payload.room.id);
+      localStorage.setItem('cc_roomCode', payload.room.code);
       localStorage.setItem('cc_userId', payload.user.id);
       localStorage.setItem('cc_userName', payload.user.displayName);
       localStorage.setItem('cc_userColor', payload.user.color);
@@ -60,6 +62,7 @@ export default function Lobby() {
       const payload = await joinRoom(roomCode, displayName.trim());
       setRoomInfo(
         payload.room.id,
+        payload.room.code,
         payload.user.id,
         payload.user.displayName,
         payload.user.color,
@@ -67,6 +70,7 @@ export default function Lobby() {
       );
       localStorage.setItem('cc_token', payload.token);
       localStorage.setItem('cc_roomId', payload.room.id);
+      localStorage.setItem('cc_roomCode', payload.room.code);
       localStorage.setItem('cc_userId', payload.user.id);
       localStorage.setItem('cc_userName', payload.user.displayName);
       localStorage.setItem('cc_userColor', payload.user.color);

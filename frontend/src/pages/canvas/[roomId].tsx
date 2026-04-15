@@ -37,6 +37,7 @@ export default function CanvasPage() {
     if (!token && typeof window !== 'undefined') {
       const storedToken = localStorage.getItem('cc_token');
       const storedRoomId = localStorage.getItem('cc_roomId');
+      const storedRoomCode = localStorage.getItem('cc_roomCode');
       const storedUserId = localStorage.getItem('cc_userId');
       const storedUserName = localStorage.getItem('cc_userName');
       const storedUserColor = localStorage.getItem('cc_userColor');
@@ -44,12 +45,14 @@ export default function CanvasPage() {
       if (
         storedToken &&
         storedRoomId &&
+        storedRoomCode &&
         storedUserId &&
         storedUserName &&
         storedUserColor
       ) {
         setRoomInfo(
           storedRoomId,
+          storedRoomCode,
           storedUserId,
           storedUserName,
           storedUserColor,
@@ -109,56 +112,8 @@ export default function CanvasPage() {
           }}
         >
           <Toolbar />
-
-          {/* Room code badge — top-right */}
-          <RoomBadge />
         </div>
       </main>
     </>
-  );
-}
-
-function RoomBadge() {
-  const { userName, userColor } = useStore();
-
-  // We don't have the short code here (only the UUID), but we show the user's info
-  return (
-    <div
-      style={{
-        position: 'absolute',
-        top: '20px',
-        right: '20px',
-        display: 'flex',
-        alignItems: 'center',
-        gap: '10px',
-        padding: '10px 16px',
-        pointerEvents: 'auto',
-        background: 'rgba(0,0,0,0.55)',
-        backdropFilter: 'blur(12px)',
-        border: '1px solid rgba(255,255,255,0.1)',
-        borderRadius: '12px',
-      }}
-    >
-      {/* Color dot */}
-      <span
-        style={{
-          display: 'inline-block',
-          width: 10,
-          height: 10,
-          borderRadius: '50%',
-          backgroundColor: userColor || '#8b5cf6',
-          flexShrink: 0,
-        }}
-      />
-      <span
-        style={{
-          fontSize: '13px',
-          color: 'rgba(255,255,255,0.7)',
-          fontWeight: 500,
-        }}
-      >
-        {userName || 'Artist'}
-      </span>
-    </div>
   );
 }
