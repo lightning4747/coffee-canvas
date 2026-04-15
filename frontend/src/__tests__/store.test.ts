@@ -7,7 +7,7 @@ describe('useStore', () => {
   it('should have initial state', () => {
     const state = useStore.getState();
     expect(state.activeTool).toBe('pen');
-    expect(state.brushSettings.color).toBe('#3d2b1f');
+    expect(state.brushSettings.color).toBe('#1e1e1e');
     expect(state.viewport.zoom).toBe(1);
   });
   it('should set active tool', () => {

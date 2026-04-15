@@ -32,6 +32,7 @@ describe('Property 12: Reconnection and Recovery', () => {
     (useStore as any).mockReturnValue({
       roomId: 'test-room',
       userId: 'test-user',
+      token: 'test-token',
       setRoomInfo: mockSetRoomInfo,
       brushSettings: { color: '#000', width: 2 },
     });
