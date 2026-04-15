@@ -54,58 +54,42 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({
 }) => {
   const [socket, setSocket] = useState<Socket | null>(null);
   const [isConnected, setIsConnected] = useState(false);
-  const { roomId, userId, setRoomInfo, brushSettings } = useStore();
+  const { roomId, userId, userName, userColor, token, brushSettings } =
+    useStore();
   const pendingEventsRef = useRef<{ event: string; payload: unknown }[]>([]);
   const lastCursorEmitRef = useRef<number>(0);
   const CURSOR_THROTTLE_MS = 50;
 
-  // For Phase 8 integration, we mock room/user info if not present
   useEffect(() => {
-    if (!roomId || !userId) {
-      const mockRoomId = '550e8400-e29b-41d4-a716-446655440000';
-      // Generate a session-based random ID to enable multi-user local testing
-      // This allows opening multiple browser windows and seeing distinct cursors
-      const sessionSuffix = Math.random().toString(36).substring(2, 6);
-      const mockUserId = `user-${sessionSuffix}`;
-      setRoomInfo(mockRoomId, mockUserId);
-    }
-  }, [roomId, userId, setRoomInfo]);
-
-  useEffect(() => {
-    if (!roomId || !userId) return;
+    // Only connect once we have real auth credentials from the lobby
+    if (!roomId || !userId || !token) return;
 
     console.log(`[Socket] Initializing for room=${roomId}, user=${userId}`);
 
-    // Use environment variable or default to localhost:3001 (Canvas Service)
     const socketUrl =
       process.env.NEXT_PUBLIC_SOCKET_URL || 'http://localhost:3001';
 
     console.log(`[Socket] Connecting to ${socketUrl}...`);
 
-    // For Phase 8, we use a dynamic mock JWT that conveys identity for dev mode
-    const mockToken = `mock-jwt-token:${userId}:Artist-${userId.split('-')[1]}:${
-      brushSettings.color
-    }`;
-
     const newSocket = io(socketUrl, {
       auth: {
-        token: mockToken,
+        token, // Real JWT from Room Service
       },
       reconnectionAttempts: 10,
       reconnectionDelay: 1000,
       reconnectionDelayMax: 5000,
       randomizationFactor: 0.5,
-      transports: ['websocket'], // Force websocket for faster initial connection
+      transports: ['websocket'],
     });
 
     newSocket.on('connect', () => {
-      console.log('Connected to Socket.IO server');
+      console.log('[Socket] Connected');
       setIsConnected(true);
 
-      // Flush pending events
+      // Flush buffered events that were queued before connection
       if (pendingEventsRef.current.length > 0) {
         console.log(
-          `Flushing ${pendingEventsRef.current.length} buffered events`
+          `[Socket] Flushing ${pendingEventsRef.current.length} buffered events`
         );
         pendingEventsRef.current.forEach(({ event, payload }) => {
           newSocket.emit(event, payload);
@@ -115,19 +99,17 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({
     });
 
     newSocket.on('disconnect', () => {
-      console.log('Disconnected from Socket.IO server');
+      console.log('[Socket] Disconnected');
       setIsConnected(false);
     });
 
     newSocket.on('connect_error', error => {
-      console.error('Socket connection error:', error.message);
+      console.error('[Socket] Connection error:', error.message);
       setIsConnected(false);
     });
 
-    // Handle application-level errors (e.g., Zod validation failures on server)
     newSocket.on('error', (payload: { message: string }) => {
-      console.error('Socket application error:', payload.message);
-      // You could also trigger a toast notification here in the future
+      console.error('[Socket] Application error:', payload.message);
     });
 
     setSocket(newSocket);
@@ -135,7 +117,7 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({
     return () => {
       newSocket.disconnect();
     };
-  }, [roomId, userId]);
+  }, [roomId, userId, token]);
 
   const emitStrokeBegin = useCallback(
     (payload: Omit<StrokeBeginPayload, 'userId' | 'roomId' | 'timestamp'>) => {
@@ -238,21 +220,28 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({
 
       const now = Date.now();
       if (now - lastCursorEmitRef.current < CURSOR_THROTTLE_MS) return;
-
       lastCursorEmitRef.current = now;
 
       const fullPayload: CursorPositionPayload = {
         ...payload,
         roomId,
         userId,
-        userName: 'You', // This will be overwritten by server anyway, but helpful for local
-        userColor: brushSettings.color,
+        userName: userName || 'Anonymous',
+        userColor: userColor || brushSettings.color,
         timestamp: now,
       };
 
       socket.emit('cursor_move', fullPayload);
     },
-    [socket, isConnected, roomId, userId, brushSettings.color]
+    [
+      socket,
+      isConnected,
+      roomId,
+      userId,
+      userName,
+      userColor,
+      brushSettings.color,
+    ]
   );
 
   return (

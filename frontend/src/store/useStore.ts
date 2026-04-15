@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 
-export type ToolType = 'pen' | 'eraser' | 'pour';
+export type ToolType = 'pan' | 'pen' | 'eraser' | 'pour';
+export type BrushStyleType = 'round' | 'flat' | 'marker' | 'watercolor';
 
 interface ViewportState {
   x: number;
@@ -23,14 +24,28 @@ interface AppState {
   brushSettings: BrushSettings;
   setBrushSettings: (settings: Partial<BrushSettings>) => void;
 
+  // Brush Style
+  brushStyle: BrushStyleType;
+  setBrushStyle: (style: BrushStyleType) => void;
+
   // Viewport Position & Zoom
   viewport: ViewportState;
   setViewport: (viewport: Partial<ViewportState>) => void;
 
-  // Room Info (Placeholder for Phase 8)
+  // Room & User Info (populated after lobby auth)
   roomId: string | null;
   userId: string | null;
-  setRoomInfo: (roomId: string, userId: string) => void;
+  userName: string | null;
+  userColor: string | null;
+  token: string | null;
+  setRoomInfo: (
+    roomId: string,
+    userId: string,
+    userName: string,
+    userColor: string,
+    token: string
+  ) => void;
+  clearRoomInfo: () => void;
 }
 
 export const useStore = create<AppState>(set => ({
@@ -38,12 +53,15 @@ export const useStore = create<AppState>(set => ({
   setActiveTool: tool => set({ activeTool: tool }),
 
   brushSettings: {
-    color: '#3d2b1f', // Coffee brown default
+    color: '#1e1e1e', // Near-black — legible on white canvas
     width: 4,
-    opacity: 0.8,
+    opacity: 0.9,
   },
   setBrushSettings: settings =>
     set(state => ({ brushSettings: { ...state.brushSettings, ...settings } })),
+
+  brushStyle: 'round',
+  setBrushStyle: style => set({ brushStyle: style }),
 
   viewport: {
     x: 0,
@@ -55,5 +73,17 @@ export const useStore = create<AppState>(set => ({
 
   roomId: null,
   userId: null,
-  setRoomInfo: (roomId, userId) => set({ roomId, userId }),
+  userName: null,
+  userColor: null,
+  token: null,
+  setRoomInfo: (roomId, userId, userName, userColor, token) =>
+    set({ roomId, userId, userName, userColor, token }),
+  clearRoomInfo: () =>
+    set({
+      roomId: null,
+      userId: null,
+      userName: null,
+      userColor: null,
+      token: null,
+    }),
 }));
