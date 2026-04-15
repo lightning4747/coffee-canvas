@@ -96,16 +96,15 @@ export const Canvas: React.FC = () => {
       if (remoteStrokesRef.current.has(payload.strokeId)) return;
 
       const graphics = StrokeRenderer.createGraphics();
-      if (payload.tool === 'eraser') {
-        graphics.blendMode = PIXI.BLEND_MODES.DST_OUT;
-      }
+
+      const color = payload.tool === 'eraser' ? '#ffffff' : payload.color;
 
       drawingLayer.addChild(graphics);
       remoteStrokesRef.current.set(payload.strokeId, {
         graphics,
         points: [],
         settings: {
-          color: payload.color,
+          color: color,
           width: payload.width,
           opacity: 1, // Default opacity for remote
         },
@@ -226,10 +225,7 @@ export const Canvas: React.FC = () => {
       // Handle Drawing (Pen / Eraser - Task 7.2)
       const graphics = StrokeRenderer.createGraphics();
 
-      // Subtractive mode for Eraser
-      if (activeTool === 'eraser') {
-        graphics.blendMode = PIXI.BLEND_MODES.DST_OUT;
-      }
+      // No subtractive mode anymore. Eraser just draws with background color (white).
 
       drawingLayer.addChild(graphics);
 
@@ -240,8 +236,12 @@ export const Canvas: React.FC = () => {
         points: [worldPos],
       };
 
+      const appliedColor =
+        activeTool === 'eraser' ? '#ffffff' : brushSettings.color;
+
       StrokeRenderer.render(graphics, [worldPos], {
         ...brushSettings,
+        color: appliedColor,
         brushStyle,
       });
 
@@ -249,7 +249,7 @@ export const Canvas: React.FC = () => {
       emitStrokeBegin({
         strokeId,
         tool: activeTool,
-        color: brushSettings.color,
+        color: appliedColor,
         width: brushSettings.width,
       });
     };
@@ -260,10 +260,13 @@ export const Canvas: React.FC = () => {
       const worldPos = screenToWorld(e.clientX, e.clientY);
       activeStrokeRef.current.points.push(worldPos);
 
+      const appliedColor =
+        activeTool === 'eraser' ? '#ffffff' : brushSettings.color;
+
       StrokeRenderer.render(
         activeStrokeRef.current.graphics,
         activeStrokeRef.current.points,
-        { ...brushSettings, brushStyle }
+        { ...brushSettings, color: appliedColor, brushStyle }
       );
 
       // Emit stroke_segment
