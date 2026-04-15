@@ -20,7 +20,7 @@ export const useCanvas = () => {
     // Initialize PixiJS Application
     const app = new PIXI.Application({
       antialias: true,
-      backgroundColor: 0x1a1a1a, // Dark grey background
+      backgroundColor: 0xffffff, // White — paper drawing metaphor
       resolution: window.devicePixelRatio || 1,
       autoDensity: true,
       resizeTo: canvasRef.current,
