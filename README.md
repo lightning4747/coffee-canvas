@@ -1,21 +1,17 @@
 # Coffee & Canvas - Collaborative Drawing Application
 
-A real-time collaborative drawing application with physics-based coffee pour effects, built with microservices architecture.
+A real-time collaborative drawing application with physics-based coffee pour effects, built with a high-performance microservices architecture. Multiple users can share an infinite canvas, sketch freely, and trigger realistic fluid simulations that interact with existing artwork.
+
+---
 
 ## Features
 
-- **Real-time Collaborative Drawing**: Multiple users can draw together with sub-50ms latency
-- **Coffee Pour Physics**: Realistic fluid simulation that interacts with existing artwork
-- **Infinite Canvas**: Scalable drawing surface with spatial chunking
-- **Microservices Architecture**: Separate services for canvas operations, room management, and physics
+- **Real-time Collaborative Drawing**: Multi-user cursor presence and stroke broadcasting with <50ms latency.
+- **Coffee Pour Physics**: Realistic fluid simulation (Go-powered) that spreads, stains, and blends with vector strokes.
+- **Infinite Canvas**: WebGL-powered drawing surface with spatial chunking for efficient infinite panning and zooming.
+- **Advanced Persistence**: Vector-based stroke history with server reconciliation and spatial indexing.
 
-## Architecture
-
-- **Canvas Service** (Node.js + Socket.IO): Real-time drawing operations
-- **Room Service** (Node.js + GraphQL): Room management and authentication
-- **Physics Service** (Go + gRPC): Fluid simulation for coffee pour effects
-- **Frontend** (Next.js + PixiJS): WebGL-powered infinite canvas
-- **Infrastructure**: Redis, PostgreSQL, Nginx
+---
 
 ## Quick Start
 
@@ -50,10 +46,92 @@ A real-time collaborative drawing application with physics-based coffee pour eff
    ```
 
 4. **Access the Application**
-   - Frontend: http://localhost:3000
-   - Canvas Service: http://localhost:3001
-   - Room Service: http://localhost:3002
-   - Physics Service: gRPC on localhost:50051
+   - **Frontend**: [http://localhost:3000](http://localhost:3000)
+   - **Canvas Service**: [http://localhost:3001](http://localhost:3001)
+   - **Room Service**: [http://localhost:3002](http://localhost:3002)
+   - **Physics Service**: gRPC on `localhost:50051`
+
+---
+
+## System Architecture
+
+Coffee & Canvas follows a decoupled microservices architecture designed for low-latency synchronization and intensive physics computations.
+
+### Architectural Overview
+
+```mermaid
+graph LR
+    subgraph ClientLayer ["Client (Browser)"]
+        A["Next.js App<br/>(React + WebGL Canvas)"]
+    end
+
+    subgraph GatewayLayer ["Gateway / Proxy"]
+        B["Nginx / Traefik"]
+    end
+
+    subgraph CanvasLayer ["Canvas Service (Node.js)"]
+        C["Socket.IO Server<br/>(socket.io)"]
+        D["Redis Pub/Sub<br/>Stroke Fan-out"]
+    end
+
+    subgraph RoomLayer ["Room Service (Node.js)"]
+        E["GraphQL Server<br/>(Apollo / Yoga)"]
+        F["Session Store"]
+    end
+
+    subgraph PhysicsLayer ["Physics Service (Go)"]
+        G["gRPC Server<br/>Fluid Simulation"]
+    end
+
+    subgraph DataLayer ["Databases"]
+        H[("Redis<br/>Active Strokes<br/>+ Pub/Sub")]
+        I[("PostgreSQL<br/>Rooms + Vector<br/>History")]
+    end
+
+    A -- "Socket.IO draw events" --> B
+    A -- "GraphQL HTTP/2" --> B
+    B -- "Socket.IO proxy" --> C
+    B -- "HTTP proxy" --> E
+    C <--> D
+    D <--> H
+    C -- "gRPC CoffeePhysics RPC" --> G
+    G -- "returns StainResult" --> C
+    E <--> F
+    E <--> I
+    C -- "persist strokes batch write" --> I
+```
+
+### Microservices Breakdown
+
+| Service             | Technology Stack             | Responsibility                                                               |
+| :------------------ | :--------------------------- | :--------------------------------------------------------------------------- |
+| **Frontend**        | Next.js, PixiJS, Apollo      | WebGL rendering, local optimistic updates, and UI management.                |
+| **Canvas Service**  | Node.js, Socket.IO, Redis    | Real-time event broadcasting, active stroke caching, and gRPC orchestration. |
+| **Room Service**    | Node.js, GraphQL, PostgreSQL | Room management, authentication (JWT), and persistent stroke history.        |
+| **Physics Service** | Go, gRPC                     | Particle-based fluid simulation for coffee pour effects.                     |
+
+### Data Flow: Coffee Pour Event
+
+When a user initiates a "Coffee Pour", the system executes a high-frequency synchronized flow to ensure all clients see the physics simulation simultaneously.
+
+```mermaid
+sequenceDiagram
+  participant Client
+  participant CanvasSvc
+  participant PhysicsSvc
+  participant Redis
+  participant DB as PostgreSQL
+
+  Client->>CanvasSvc: socket.emit: coffee_pour { x, y, intensity, roomId }
+  CanvasSvc->>PhysicsSvc: gRPC: ComputeSpread(PourRequest)
+  PhysicsSvc-->>CanvasSvc: gRPC: StainResult { polygons[], affected_stroke_ids[] }
+  CanvasSvc->>Redis: PUBLISH room:{id} stain_event payload
+  Redis-->>CanvasSvc: fan-out to all subscribers
+  CanvasSvc-->>Client: socket.to(room).emit: stain_applied { polygons[], mutations[] }
+  CanvasSvc->>DB: INSERT stain event into stroke_events
+```
+
+---
 
 ## Development
 
@@ -66,11 +144,8 @@ A real-time collaborative drawing application with physics-based coffee pour eff
 │   ├── physics-service/    # Coffee pour physics (Go)
 │   └── database/           # Database initialization
 ├── frontend/               # Next.js + PixiJS frontend
-├── shared/                 # Shared types and utilities
-│   ├── src/types/         # TypeScript interfaces
-│   ├── proto/             # Protocol Buffer definitions
-│   └── src/utils/         # Shared utilities
-└── docker-compose.yml     # Development environment
+├── shared/                 # Shared types, protos, and utils
+└── docker-compose.yml     # Container orchestration
 ```
 
 ### Building Individual Services
@@ -79,13 +154,8 @@ A real-time collaborative drawing application with physics-based coffee pour eff
 # Build all services
 npm run build
 
-# Build specific service
+# Build specific service (example)
 cd services/canvas-service && npm run build
-cd services/room-service && npm run build
-cd services/physics-service && go build
-
-# Build frontend
-cd frontend && npm run build
 ```
 
 ### Running Tests
@@ -98,17 +168,15 @@ npm run test
 cd services/canvas-service && npm run test
 ```
 
+---
+
 ## Performance Targets
 
-- **Drawing Latency**: <50ms for stroke broadcast
-- **Physics Simulation**: <100ms for coffee pour calculations
-- **Rendering**: 60 FPS WebGL performance
-- **Scalability**: 50 concurrent users per room
-
-## Contributing
-
-This project follows a microservices architecture with clear separation of concerns. Each service has its own package.json and can be developed independently.
+- **Drawing Latency**: <50ms for stroke broadcast between clients.
+- **Physics Simulation**: <100ms for fluid spread calculations in the Go service.
+- **Rendering**: Consistent 60 FPS using WebGL (PixiJS) even on large canvases.
+- **Scalability**: Optimized for 50+ concurrent users per room with spatial partitioning.
 
 ## License
 
-MIT License - see LICENSE file for details.
+MIT License - see [LICENSE](LICENSE) file for details.
