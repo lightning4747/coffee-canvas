@@ -70,19 +70,19 @@ describe('CanvasService Unit Tests', () => {
 
     // Mock Redis Client
     mockRedisClient = {
-      connect: jest.fn().mockResolvedValue({}),
+      ping: jest.fn().mockResolvedValue('PONG'),
       on: jest.fn(),
-      hSet: jest.fn().mockResolvedValue(1),
-      hGet: jest.fn().mockResolvedValue(JSON.stringify(testPayload)),
-      hGetAll: jest.fn().mockResolvedValue({
+      hset: jest.fn().mockResolvedValue(1),
+      hget: jest.fn().mockResolvedValue(JSON.stringify(testPayload)),
+      hgetall: jest.fn().mockResolvedValue({
         'stroke-1': JSON.stringify({ roomId: 'room-1' }),
       }),
-      lPush: jest.fn().mockResolvedValue(1),
-      lRange: jest.fn().mockResolvedValue([]),
-      lTrim: jest.fn().mockResolvedValue('OK'),
-      sAdd: jest.fn().mockResolvedValue(1),
-      sMembers: jest.fn().mockResolvedValue([]),
-      sRem: jest.fn().mockResolvedValue(1),
+      lpush: jest.fn().mockResolvedValue(1),
+      lrange: jest.fn().mockResolvedValue([]),
+      ltrim: jest.fn().mockResolvedValue('OK'),
+      sadd: jest.fn().mockResolvedValue(1),
+      smembers: jest.fn().mockResolvedValue([]),
+      srem: jest.fn().mockResolvedValue(1),
       expire: jest.fn().mockResolvedValue(true),
       del: jest.fn().mockResolvedValue(1),
     };
@@ -153,7 +153,7 @@ describe('CanvasService Unit Tests', () => {
 
     await strokeBeginHandler(payload);
 
-    expect(mockRedisClient.hSet).toHaveBeenCalledWith(
+    expect(mockRedisClient.hset).toHaveBeenCalledWith(
       `canvas:stroke:550e8400-e29b-41d4-a716-446655440002`,
       expect.objectContaining({
         userId: '550e8400-e29b-41d4-a716-446655440001',
@@ -190,6 +190,6 @@ describe('CanvasService Unit Tests', () => {
 
     const disconnectHandler = socketListeners['disconnect'];
     await disconnectHandler();
-    expect(mockRedisClient.sRem).toHaveBeenCalled();
+    expect(mockRedisClient.srem).toHaveBeenCalled();
   });
 });

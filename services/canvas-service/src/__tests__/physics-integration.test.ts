@@ -11,10 +11,10 @@ jest.mock('rate-limiter-flexible', () => ({
 
 // Mock Redis
 const mockRedisClient = {
-  connect: jest.fn().mockResolvedValue(undefined),
+  ping: jest.fn().mockResolvedValue('PONG'),
   on: jest.fn(),
-  hSet: jest.fn().mockResolvedValue(1),
-  hGetAll: jest.fn().mockResolvedValue({
+  hset: jest.fn().mockResolvedValue(1),
+  hgetall: jest.fn().mockResolvedValue({
     userId: '550e8400-e29b-41d4-a716-446655440001',
     roomId: '550e8400-e29b-41d4-a716-446655440000',
     tool: 'pen',
@@ -23,19 +23,19 @@ const mockRedisClient = {
     startTime: Date.now().toString(),
     status: 'active',
   }),
-  sAdd: jest.fn().mockResolvedValue(1),
-  sMembers: jest
+  sadd: jest.fn().mockResolvedValue(1),
+  smembers: jest
     .fn()
     .mockResolvedValue(['550e8400-e29b-41d4-a716-446655440012']),
-  sRem: jest.fn().mockResolvedValue(1),
-  rPush: jest.fn().mockResolvedValue(1),
-  lPush: jest.fn().mockResolvedValue(1),
-  lRange: jest.fn().mockResolvedValue([JSON.stringify({ x: 10, y: 10 })]),
+  srem: jest.fn().mockResolvedValue(1),
+  rpush: jest.fn().mockResolvedValue(1),
+  lpush: jest.fn().mockResolvedValue(1),
+  lrange: jest.fn().mockResolvedValue([JSON.stringify({ x: 10, y: 10 })]),
   expire: jest.fn().mockResolvedValue(true),
 };
 
-jest.mock('redis', () => ({
-  createClient: jest.fn(() => mockRedisClient),
+jest.mock('ioredis', () => ({
+  Redis: jest.fn(() => mockRedisClient),
 }));
 
 interface MockSocket extends EventEmitter {
@@ -129,7 +129,10 @@ describe('Physics Integration Verification', () => {
       >[0],
       {
         redisUrl: 'mock',
+        redisClient: mockRedisClient,
         physicsClient: mockPhysicsClient as any,
+        drawingRateLimiter: { consume: jest.fn().mockResolvedValue({}) },
+        pourRateLimiter: { consume: jest.fn().mockResolvedValue({}) },
       }
     );
     io = result.io as unknown as EventEmitter & {
@@ -206,7 +209,7 @@ describe('Physics Integration Verification', () => {
 
     // Assertions
     // 1. Should have fetched active strokes from Redis
-    expect(mockRedisClient.sMembers).toHaveBeenCalledWith(
+    expect(mockRedisClient.smembers).toHaveBeenCalledWith(
       `canvas:room:${roomId}:active_strokes`
     );
 
@@ -225,7 +228,7 @@ describe('Physics Integration Verification', () => {
     );
 
     // 3. Should have cached the result in Redis
-    expect(mockRedisClient.lPush).toHaveBeenCalledWith(
+    expect(mockRedisClient.lpush).toHaveBeenCalledWith(
       `canvas:room:${roomId}:stains`,
       expect.stringContaining('"pourId":"550e8400-e29b-41d4-a716-446655440003"')
     );

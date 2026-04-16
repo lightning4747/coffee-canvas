@@ -55,10 +55,10 @@ describe('Canvas Service Rate Limiting Unit Tests', () => {
     (validateJWT as jest.Mock).mockResolvedValue(testUser);
 
     mockRedisClient = {
-      connect: jest.fn().mockResolvedValue({}),
+      ping: jest.fn().mockResolvedValue('PONG'),
       disconnect: jest.fn().mockResolvedValue({}),
-      hSet: jest.fn().mockResolvedValue(1),
-      sAdd: jest.fn().mockResolvedValue(1),
+      hset: jest.fn().mockResolvedValue(1),
+      sadd: jest.fn().mockResolvedValue(1),
       expire: jest.fn().mockResolvedValue(true),
     };
   });

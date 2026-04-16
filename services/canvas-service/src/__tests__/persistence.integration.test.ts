@@ -14,35 +14,32 @@ jest.mock('rate-limiter-flexible', () => ({
   })),
 }));
 
-// Mock Dependencies
-jest.mock('redis', () => ({
-  createClient: jest.fn(() => ({
-    on: jest.fn(),
-    connect: jest.fn().mockResolvedValue(undefined),
-    hSet: jest.fn().mockResolvedValue(1),
-    hGetAll: jest.fn().mockResolvedValue({
-      userId: '550e8400-e29b-41d4-a716-446655440001',
-      roomId: '550e8400-e29b-41d4-a716-446655440000',
-      tool: 'pen',
-      color: '#000000',
-      width: '2',
-      startTime: Date.now().toString(),
-    }),
-    sAdd: jest.fn().mockResolvedValue(1),
-    sRem: jest.fn().mockResolvedValue(1),
-    sMembers: jest.fn().mockResolvedValue([]),
-    exists: jest.fn().mockResolvedValue(1),
-    lRange: jest
-      .fn()
-      .mockResolvedValue([
-        JSON.stringify({ x: 10, y: 10 }),
-        JSON.stringify({ x: 20, y: 20 }),
-      ]),
-    expire: jest.fn().mockResolvedValue(true),
-    rPush: jest.fn().mockResolvedValue(1),
-    lPush: jest.fn().mockResolvedValue(1),
-  })),
-}));
+const mockRedisClient = {
+  on: jest.fn(),
+  ping: jest.fn().mockResolvedValue('PONG'),
+  hset: jest.fn().mockResolvedValue(1),
+  hgetall: jest.fn().mockResolvedValue({
+    userId: '550e8400-e29b-41d4-a716-446655440001',
+    roomId: '550e8400-e29b-41d4-a716-446655440000',
+    tool: 'pen',
+    color: '#000000',
+    width: '2',
+    startTime: Date.now().toString(),
+  }),
+  sadd: jest.fn().mockResolvedValue(1),
+  srem: jest.fn().mockResolvedValue(1),
+  smembers: jest.fn().mockResolvedValue([]),
+  exists: jest.fn().mockResolvedValue(1),
+  lrange: jest
+    .fn()
+    .mockResolvedValue([
+      JSON.stringify({ x: 10, y: 10 }),
+      JSON.stringify({ x: 20, y: 20 }),
+    ]),
+  expire: jest.fn().mockResolvedValue(true),
+  rpush: jest.fn().mockResolvedValue(1),
+  lpush: jest.fn().mockResolvedValue(1),
+};
 
 jest.mock('socket.io', () => {
   // eslint-disable-next-line @typescript-eslint/no-var-requires
@@ -120,7 +117,12 @@ describe('Persistence Integration Verification', () => {
       mockHttpServer as unknown as Parameters<
         typeof initializeCanvasService
       >[0],
-      { redisUrl: 'mock' }
+      {
+        redisUrl: 'mock',
+        redisClient: mockRedisClient,
+        drawingRateLimiter: { consume: jest.fn().mockResolvedValue({}) },
+        pourRateLimiter: { consume: jest.fn().mockResolvedValue({}) },
+      }
     );
     io = result.io as unknown as Server;
     flushTasks = result.flushPendingTasks;

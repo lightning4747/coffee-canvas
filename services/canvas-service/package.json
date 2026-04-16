@@ -7,7 +7,7 @@
     "dev": "nodemon -L --watch src -e ts,js --exec ts-node -r tsconfig-paths/register src/index.ts",
     "build": "tsc",
     "start": "node dist/index.js",
-    "test": "jest --passWithNoTests",
+    "test": "jest --passWithNoTests --runInBand --logHeapUsage",
     "test:ci": "npm run test",
     "test:resilience": "jest src/__tests__/resilience.integration.test.ts",
     "lint": "eslint src/**/*.ts",

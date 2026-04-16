@@ -8,22 +8,22 @@ const { initializeCanvasService } = require('../index');
 
 // Mock dependencies
 const mockRedisClient = {
-  hSet: jest.fn().mockResolvedValue(1),
-  hGetAll: jest.fn().mockResolvedValue({}),
-  sAdd: jest.fn().mockResolvedValue(1),
-  sRem: jest.fn().mockResolvedValue(1),
-  sMembers: jest.fn().mockResolvedValue([]),
-  rPush: jest.fn().mockResolvedValue(1),
-  lPush: jest.fn().mockResolvedValue(1),
-  lRange: jest.fn().mockResolvedValue([]),
+  hset: jest.fn().mockResolvedValue(1),
+  hgetall: jest.fn().mockResolvedValue({}),
+  sadd: jest.fn().mockResolvedValue(1),
+  srem: jest.fn().mockResolvedValue(1),
+  smembers: jest.fn().mockResolvedValue([]),
+  rpush: jest.fn().mockResolvedValue(1),
+  lpush: jest.fn().mockResolvedValue(1),
+  lrange: jest.fn().mockResolvedValue([]),
   expire: jest.fn().mockResolvedValue(true),
   exists: jest.fn().mockResolvedValue(1),
-  connect: jest.fn().mockResolvedValue(undefined),
+  ping: jest.fn().mockResolvedValue('PONG'),
   on: jest.fn(),
 };
 
-jest.mock('redis', () => ({
-  createClient: jest.fn(() => mockRedisClient),
+jest.mock('ioredis', () => ({
+  Redis: jest.fn(() => mockRedisClient),
 }));
 
 jest.mock('rate-limiter-flexible', () => ({
@@ -303,11 +303,11 @@ describe('Canvas Service Property Tests', () => {
           await new Promise(resolve => setImmediate(resolve));
 
           // Verify Redis isolation for begin
-          expect(mockRedisClient.hSet).toHaveBeenCalledWith(
+          expect(mockRedisClient.hset).toHaveBeenCalledWith(
             `canvas:stroke:${id1}`,
             expect.objectContaining({ tool: 'pen' })
           );
-          expect(mockRedisClient.hSet).toHaveBeenCalledWith(
+          expect(mockRedisClient.hset).toHaveBeenCalledWith(
             `canvas:stroke:${id2}`,
             expect.objectContaining({ tool: 'brush' })
           );
@@ -331,11 +331,11 @@ describe('Canvas Service Property Tests', () => {
           await new Promise(resolve => setImmediate(resolve));
 
           // Verify Redis isolation for points lists
-          expect(mockRedisClient.rPush).toHaveBeenCalledWith(
+          expect(mockRedisClient.rpush).toHaveBeenCalledWith(
             `canvas:stroke:${id1}:points`,
             pts1.map(p => JSON.stringify(p))
           );
-          expect(mockRedisClient.rPush).toHaveBeenCalledWith(
+          expect(mockRedisClient.rpush).toHaveBeenCalledWith(
             `canvas:stroke:${id2}:points`,
             pts2.map(p => JSON.stringify(p))
           );
@@ -432,10 +432,10 @@ describe('Canvas Service Property Tests', () => {
 
           // 0. Setup and clear mocks
           mockRedisClient.exists.mockResolvedValue(1);
-          mockRedisClient.lRange.mockResolvedValue(
+          mockRedisClient.lrange.mockResolvedValue(
             points.map(p => JSON.stringify(p))
           );
-          mockRedisClient.hGetAll.mockResolvedValue({
+          mockRedisClient.hgetall.mockResolvedValue({
             userId: '550e8400-e29b-41d4-a716-446655440001',
             roomId,
             tool: 'pen',
