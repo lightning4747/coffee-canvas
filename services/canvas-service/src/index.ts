@@ -7,7 +7,7 @@
 import compression from 'compression';
 import express from 'express';
 import { createServer, Server as HttpServer } from 'http';
-import { createClient } from 'redis';
+
 import { Server } from 'socket.io';
 import { createAdapter } from '@socket.io/redis-adapter';
 import { Redis } from 'ioredis';
@@ -168,40 +168,35 @@ export async function initializeCanvasService(
   let totalStrokesSaved = 0;
   let totalPhysicsSimulations = 0;
 
+  console.log('TRACE: Starting initializeCanvasService');
   const normalizedOptions =
     typeof options === 'string' ? { redisUrl: options } : options;
   const redisUrl = normalizedOptions.redisUrl || REDIS_URL;
 
   // 1. Initialize Redis Client
+  console.log('TRACE: Initializing Redis Client. URL=', redisUrl);
   const redisClient =
     normalizedOptions.redisClient ||
-    createClient({
-      url: redisUrl,
-      socket: {
-        reconnectStrategy: retries => {
-          if (retries > 10) {
-            logger.error('Redis reconnection failed after 10 attempts');
-            return new Error('Redis reconnection failed');
-          }
-          const delay = Math.min(retries * 100, 3000);
-          logger.warn(
-            `Redis reconnecting in ${delay}ms... (attempt ${retries})`
-          );
-          return delay;
-        },
+    new Redis(redisUrl, {
+      retryStrategy: (retries: number): number | null => {
+        if (retries > 10) {
+          logger.error('Redis reconnection failed after 10 attempts');
+          // Return null to stop retrying.
+          return null;
+        }
+        const delay = Math.min(retries * 100, 3000);
+        logger.warn(`Redis reconnecting in ${delay}ms... (attempt ${retries})`);
+        return delay;
       },
     });
 
   if (!normalizedOptions.redisClient) {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (redisClient as any).on('error', (err: Error) =>
+    redisClient.on('error', (err: Error) =>
       logger.error('Redis Client Error:', err)
     );
-    (redisClient as any).on('connect', () =>
-      logger.info('Redis client connecting...')
-    );
-    (redisClient as any).on('ready', () => logger.info('Redis client ready'));
-    (redisClient as any).on('reconnecting', () =>
+    redisClient.on('connect', () => logger.info('Redis client connecting...'));
+    redisClient.on('ready', () => logger.info('Redis client ready'));
+    redisClient.on('reconnecting', () =>
       logger.warn('Redis client reconnecting...')
     );
   }
@@ -216,13 +211,17 @@ export async function initializeCanvasService(
     normalizedOptions.physicsClient || physicsClient;
 
   try {
-    await redisClient.connect();
+    // ioredis connects automatically, but we can ping to ensure connection
+    console.log('TRACE: Pinging redis...');
+    await redisClient.ping();
+    console.log('TRACE: Ping successful');
     logger.info('Connected to Redis for stroke caching');
   } catch (err) {
     console.error('Failed to connect to Redis:', err);
     throw err;
   }
 
+  console.log('TRACE: Initializing rate limiters...');
   // 4. Initialize Rate Limiters
   const effectiveDrawingRateLimiter =
     normalizedOptions.drawingRateLimiter ||
@@ -242,6 +241,7 @@ export async function initializeCanvasService(
       duration: 3,
     });
 
+  console.log('TRACE: Initializing Socket.IO...');
   // Initialize Socket.IO with CORS and Redis adapter
   const io = new Server<
     ClientToServerEvents,
@@ -383,7 +383,7 @@ export async function initializeCanvasService(
 
         // Cache stroke metadata in Redis
         const strokeKey = `canvas:stroke:${strokeId}`;
-        await redisClient.hSet(strokeKey, {
+        await redisClient.hset(strokeKey, {
           userId,
           roomId,
           tool: payload.tool,
@@ -394,7 +394,7 @@ export async function initializeCanvasService(
         });
 
         // Add to room's active strokes
-        await redisClient.sAdd(
+        await redisClient.sadd(
           `canvas:room:${roomId}:active_strokes`,
           strokeId
         );
@@ -444,7 +444,7 @@ export async function initializeCanvasService(
           const serializedPoints = payload.points.map((p: Point2D) =>
             JSON.stringify(p)
           );
-          await redisClient.rPush(pointsKey, serializedPoints);
+          await redisClient.rpush(pointsKey, serializedPoints);
           await redisClient.expire(pointsKey, 3600);
         }
 
@@ -511,10 +511,10 @@ export async function initializeCanvasService(
         if (!exists) return;
 
         // Mark stroke as complete in Redis
-        await redisClient.hSet(strokeKey, 'status', 'completed');
+        await redisClient.hset(strokeKey, 'status', 'completed');
 
         // Remove from active strokes set
-        await redisClient.sRem(
+        await redisClient.srem(
           `canvas:room:${roomId}:active_strokes`,
           strokeId
         );
@@ -532,8 +532,8 @@ export async function initializeCanvasService(
             });
             // 1. Fetch metadata and all points
             const [strokeMeta, pointsJson] = await Promise.all([
-              redisClient.hGetAll(`canvas:stroke:${strokeId}`),
-              redisClient.lRange(`canvas:stroke:${strokeId}:points`, 0, -1),
+              redisClient.hgetall(`canvas:stroke:${strokeId}`),
+              redisClient.lrange(`canvas:stroke:${strokeId}:points`, 0, -1),
             ]);
 
             if (!strokeMeta.roomId || pointsJson.length === 0) return;
@@ -644,17 +644,17 @@ export async function initializeCanvasService(
         const { origin, intensity } = payload;
 
         // 1. Fetch nearby/active strokes for simulation context
-        const activeStrokeIds = (await redisClient.sMembers(
+        const activeStrokeIds = (await redisClient.smembers(
           `canvas:room:${roomId}:active_strokes`
         )) as string[];
 
         const strokeDataList: PhysicsStrokeContext[] = [];
         for (const strokeId of activeStrokeIds) {
-          const strokeMeta = await redisClient.hGetAll(
+          const strokeMeta = await redisClient.hgetall(
             `canvas:stroke:${strokeId}`
           );
           if (!strokeMeta.roomId) {
-            await redisClient.sRem(
+            await redisClient.srem(
               `canvas:room:${roomId}:active_strokes`,
               strokeId
             );
@@ -662,7 +662,7 @@ export async function initializeCanvasService(
           }
 
           // Fetch points
-          const pointsJson = await redisClient.lRange(
+          const pointsJson = await redisClient.lrange(
             `canvas:stroke:${strokeId}:points`,
             0,
             -1
@@ -696,7 +696,7 @@ export async function initializeCanvasService(
 
         // 3. Cache stain result in Redis for history replay
         // Requirement 1.5, 6.2: Ensure all participants (including future ones) see the result
-        await redisClient.lPush(
+        await redisClient.lpush(
           `canvas:room:${roomId}:stains`,
           JSON.stringify({
             ...result,
@@ -796,7 +796,7 @@ export async function initializeCanvasService(
 
     // Track user presence in Redis
     try {
-      await redisClient.sAdd(`canvas:room:${roomId}:active_users`, userId);
+      await redisClient.sadd(`canvas:room:${roomId}:active_users`, userId);
     } catch (presenceErr) {
       console.warn(`Failed to track presence for user ${userId}:`, presenceErr);
     }
@@ -826,7 +826,7 @@ export async function initializeCanvasService(
 
         // Remove from room's active users in Redis
         // Requirement 1.3: Ensure user metadata is cleaned up to prevent stale presence
-        await redisClient.sRem(`canvas:room:${roomId}:active_users`, userId);
+        await redisClient.srem(`canvas:room:${roomId}:active_users`, userId);
       } catch (error) {
         console.error(
           `Error during disconnect cleanup for user ${userId}:`,
